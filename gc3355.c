@@ -156,7 +156,6 @@ int gc3355_find_freq_index(int freq)
 	return gc3355_find_freq_index(GC3355_DEFAULT_FREQUENCY);
 }
 
-static
 void gc3355_set_core_freq(struct cgpu_info *device)
 {
 	struct gc3355_info *info = (struct gc3355_info *)(device->device_data);

@@ -52,4 +52,7 @@ void gc3355_init(struct cgpu_info *device);
 extern
 void gc3355_scrypt_reset(struct cgpu_info *device);
 
+extern
+void gc3355_set_core_freq(struct cgpu_info *device);
+
 #endif

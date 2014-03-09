@@ -20,7 +20,9 @@
 
 BFG_REGISTER_DRIVER(gridseed_drv)
 
-// helpers
+/*
+ * helper functions
+ */
 
 static
 struct cgpu_info *gridseed_alloc_device(const char *path, struct device_drv *driver, struct gc3355_info *info)
@@ -51,7 +53,9 @@ struct gc3355_info *gridseed_alloc_info()
 	return info;
 }
 
-// device detection
+/*
+ * device detection
+ */
 
 static
 bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct gc3355_info *info)
@@ -129,7 +133,10 @@ bool gridseed_lowl_probe(const struct lowlevel_device_info * const info)
 	return vcom_lowl_probe_wrapper(info, gridseed_detect_one);
 }
 
-// setup & shutdown
+/*
+ * setup & shutdown
+ */
+
 static
 bool gridseed_thread_prepare(struct thr_info *thr)
 {
@@ -150,7 +157,9 @@ void gridseed_thread_shutdown(struct thr_info *thr)
 	free(thr->cgpu_data);
 }
 
-// miner loop
+/*
+ * mining loop
+ */
 
 // send work to the device
 static
@@ -218,6 +227,29 @@ int64_t gridseed_scanhash(struct thr_info *thr, struct work *work, int64_t __may
 	return gridseed_calc_hashes(thr);
 }
 
+/*
+ * specify settings / options
+ */
+
+// support for --set-device dualminer:clock=freq
+static
+char *gridseed_set_device(struct cgpu_info *device, char *option, char *setting, char *replybuf)
+{
+	if (strcasecmp(option, "clock") == 0)
+	{
+		int val = atoi(setting);
+
+		struct gc3355_info *info = device->device_data;
+		info->freq = val;
+		gc3355_set_core_freq(device);
+
+		return NULL;
+	}
+
+	sprintf(replybuf, "Unknown option: %s", option);
+	return replybuf;
+}
+
 struct device_drv gridseed_drv =
 {
 	// metadata
@@ -230,7 +262,7 @@ struct device_drv gridseed_drv =
 	// initialize device
 	.thread_prepare = gridseed_thread_prepare,
 
-	// mining - scanhash
+	// specify mining type - scanhash
 	.minerloop = minerloop_scanhash,
 
 	// scanhash mining hooks
@@ -239,4 +271,7 @@ struct device_drv gridseed_drv =
 
 	// teardown device
 	.thread_shutdown = gridseed_thread_shutdown,
+
+	// specify settings / options
+	.set_device = gridseed_set_device,
 };

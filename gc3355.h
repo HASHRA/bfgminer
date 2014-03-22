@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 Nate Woolls
+ * Copyright 2014 GridSeed Team
  * Copyright 2014 Dualminer Team
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -11,7 +12,55 @@
 #ifndef bfgminer_gc3355_h
 #define bfgminer_gc3355_h
 
+#include <stdint.h>
 #include <stdbool.h>
+
+#include "miner.h"
+
+ // GridSeed support begins here
+
+#define GC3355_DEFAULT_FREQUENCY	600
+#define GC3355_DEFAULT_CHIPS		5
+
+#define GC3355_READ_SIZE			12
+#define GRIDSEED_HASH_SPEED			0.0851128926	// in ms
+
+// static information
+struct gc3355_info
+{
+	uint16_t freq;
+	int chips;
+};
+
+// dynamic information
+struct gc3355_state
+{
+	struct timeval scanhash_time;
+};
+
+extern
+int gc3355_open(const char *path);
+
+extern
+int gc3355_close(int fd);
+
+extern
+int gc3355_read(int fd, char *buf, size_t size);
+
+extern
+ssize_t gc3355_write(int fd, const void * const buf, const size_t size);
+
+extern
+void gc3355_init_usborb(struct cgpu_info *device);
+
+extern
+void gc3355_scrypt_reset(struct cgpu_info *device);
+
+extern
+void gc3355_set_core_freq(struct cgpu_info *device);
+
+
+// DualMiner support begins here
 
 #define SCRYPT_UNIT_OPEN  0
 #define SCRYPT_UNIT_CLOSE 1
@@ -49,7 +98,7 @@ extern
 void gc3355_opt_scrypt_init(int fd);
 
 extern
-void gc3355_init(int fd, char *sha2_unit, bool is_scrypt_only);
+void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only);
 
 extern
 void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating);
@@ -57,7 +106,10 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating);
 extern
 void gc3355_open_scrypt_unit(int fd, int status);
 
-#define gc3355_get_cts_status(fd)  (get_serial_cts(fd) ? 0 : 1)
-#define gc3355_set_rts_status(fd, val)  set_serial_rts(fd, val)
+extern
+int gc3355_get_cts_status(int fd);
+
+extern
+void gc3355_set_rts_status(int fd, unsigned int value);
 
 #endif

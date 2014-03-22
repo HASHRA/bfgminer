@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 Nate Woolls
+ * Copyright 2014 GridSeed Team
  * Copyright 2014 Dualminer Team
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -10,17 +11,131 @@
 
 #include "gc3355.h"
 
+#include <unistd.h>
 #include <string.h>
+
 #include "miner.h"
+#include "lowl-vcom.h"
 #include "driver-icarus.h"
 #include "logging.h"
-#include "lowl-vcom.h"
 
 #ifndef WIN32
   #include <sys/ioctl.h>
 #else
   #include <io.h>
 #endif
+
+// GridSeed support begins here
+
+#define GC3355_COMMAND_DELAY		20000
+#define GC3355_INIT_DELAY			200000
+
+
+#define GC3355_CHIP_NAME "gc3355"
+
+static
+const char *str_reset[] =
+{
+	"55AAC000808080800000000001000000", // Chip reset
+	NULL
+};
+
+static
+const char *str_init[] =
+{
+	"55AAC000C0C0C0C00500000001000000",
+	"55AAEF020000000000000000000000000000000000000000",
+	"55AAEF3020000000",
+	NULL
+};
+
+static
+const char *str_scrypt_reset[] =
+{
+	"55AA1F2816000000",
+	"55AA1F2817000000",
+	NULL
+};
+
+/* commands to set core frequency */
+static
+const int opt_frequency[] =
+{
+	250, 400, 450, 500, 550, 600, 650,
+	700, 750, 800, 850, 900, 950, 1000,
+	-1
+};
+
+static
+const char *bin_frequency[] =
+{
+	"\x55\xaa\xef\x00\x05\x00\x20\x01",
+	"\x55\xaa\xef\x00\x05\x00\xe0\x01",
+	"\x55\xaa\xef\x00\x05\x00\x20\x02",
+	"\x55\xaa\xef\x00\x05\x00\x60\x82",
+	"\x55\xaa\xef\x00\x05\x00\xa0\x82",
+	"\x55\xaa\xef\x00\x05\x00\xe0\x82",
+	"\x55\xaa\xef\x00\x05\x00\x20\x83",
+
+	"\x55\xaa\xef\x00\x05\x00\x60\x83",
+	"\x55\xaa\xef\x00\x05\x00\xa0\x83",
+	"\x55\xaa\xef\x00\x05\x00\xe0\x83",
+	"\x55\xaa\xef\x00\x05\x00\x20\x84",
+	"\x55\xaa\xef\x00\x05\x00\x60\x84",
+	"\x55\xaa\xef\x00\x05\x00\x80\x84",
+	"\x55\xaa\xef\x00\x05\x00\xae\x84",
+};
+
+static
+void gc3355_log_protocol(int fd, const char *buf, size_t size, const char *prefix)
+{
+	char hex[(size * 2) + 1];
+	bin2hex(hex, buf, size);
+	applog(LOG_DEBUG, "%s fd=%d: DEVPROTO: %s(%3lu) %s", GC3355_CHIP_NAME, fd, prefix, size, hex);
+}
+
+int gc3355_read(int fd, char *buf, size_t size)
+{
+	size_t read;
+	int tries = 20;
+
+	while (tries > 0)
+	{
+		read = serial_read(fd, buf, size);
+		if (read > 0)
+			break;
+
+		tries--;
+	}
+
+	if(unlikely(tries == 0))
+		return -1;
+
+	if ((read > 0) && opt_dev_protocol)
+		gc3355_log_protocol(fd, buf, size, "RECV");
+
+	return read;
+}
+
+ssize_t gc3355_write(int fd, const void * const buf, const size_t size)
+{
+	if (opt_dev_protocol)
+		gc3355_log_protocol(fd, buf, size, "SEND");
+	
+	return write(fd, buf, size);
+}
+
+int gc3355_open(const char *path)
+{
+	return serial_open(path, 115200, 1, true);
+}
+
+int gc3355_close(int fd)
+{
+	return serial_close(fd);
+}
+
+// DualMiner support begins here
 
 #define DEFAULT_DELAY_TIME 2000
 
@@ -340,27 +455,102 @@ bool opt_dual_mode = false;
 
 void gc3355_dual_reset(int fd)
 {
-	set_serial_dtr(fd, 1);
-	cgsleep_ms(1000);
-	set_serial_dtr(fd, 0);
+	static int i = 0;
+
+#ifdef WIN32
+	DCB dcb;
+
+	memset(&dcb, 0, sizeof(DCB));
+	GetCommState(_get_osfhandle(fd), &dcb);
+	dcb.fDtrControl = DTR_CONTROL_ENABLE;
+	SetCommState(_get_osfhandle(fd), &dcb);
+	Sleep(1);
+	GetCommState(_get_osfhandle(fd), &dcb);
+	dcb.fDtrControl = DTR_CONTROL_DISABLE;
+	SetCommState(_get_osfhandle(fd), &dcb);
+
+#else
+
+	int dtr_flag = 0;
+	ioctl(fd, TIOCMGET, &dtr_flag);
+	dtr_flag |= TIOCM_DTR;
+	ioctl(fd, TIOCMSET, &dtr_flag);
+	usleep(1000);
+	ioctl(fd, TIOCMGET, &dtr_flag);
+	dtr_flag &= ~TIOCM_DTR;
+	ioctl(fd, TIOCMSET, &dtr_flag);
+
+#endif
 }
 
 static
 void gc3355_send_cmds(int fd, const char *cmds[])
 {
 	int i = 0;
-	unsigned char ob_bin[32];
+	unsigned char ob_bin[512];
 	for(i = 0 ;; i++)
 	{
 		memset(ob_bin, 0, sizeof(ob_bin));
 
+		const char *cmd = cmds[i];
+
+		if (cmd == NULL)
+			break;
+
 		if (cmds[i][0] == 0)
 			break;
 
-		hex2bin(ob_bin, cmds[i], strlen(cmds[i]) / 2);
-		icarus_write(fd, ob_bin, 8);
-		usleep(DEFAULT_DELAY_TIME);
+		int size = strlen(cmd) / 2;
+		hex2bin(ob_bin, cmd, size);
+		gc3355_write(fd, ob_bin, size);
+
+		usleep(GC3355_COMMAND_DELAY);
 	}
+}
+
+static
+int gc3355_find_freq_index(int freq)
+{
+	for (int i = 0; opt_frequency[i] != -1; i++)
+		if (freq == opt_frequency[i])
+			return i;
+
+	return gc3355_find_freq_index(GC3355_DEFAULT_FREQUENCY);
+}
+
+void gc3355_set_core_freq(struct cgpu_info *device)
+{
+	struct gc3355_info *info = (struct gc3355_info *)(device->device_data);
+	int fd = device->device_fd;
+	int idx = gc3355_find_freq_index(info->freq);
+
+	unsigned char freq_cmd[8];
+	memcpy(freq_cmd, bin_frequency[idx], 8);
+	gc3355_write(fd, freq_cmd, sizeof(freq_cmd));
+
+	usleep(GC3355_COMMAND_DELAY);
+
+	applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, info->freq);
+}
+
+void gc3355_scrypt_reset(struct cgpu_info *device)
+{
+	int fd = device->device_fd;
+	gc3355_send_cmds(fd, str_scrypt_reset);
+}
+
+void gc3355_init_usborb(struct cgpu_info *device)
+{
+	int fd = device->device_fd;
+
+	gc3355_send_cmds(fd, str_reset);
+
+	usleep(GC3355_INIT_DELAY);
+
+	gc3355_send_cmds(fd, str_init);
+	gc3355_send_cmds(fd, str_scrypt_reset);
+
+	gc3355_set_core_freq(device);
 }
 
 void gc3355_opt_scrypt_init(int fd)
@@ -373,6 +563,136 @@ void gc3355_opt_scrypt_init(int fd)
 	};
 
 	gc3355_send_cmds(fd, initscrypt_ob);
+}
+
+static
+void gc3355_pll_freq_init(int fd, char *pll_freq)
+{
+	const char *pll_freq_cmd[] =
+	{
+		"400",
+		"55AAEF000500E081",
+		"55AA0FFF900D00C0",
+		"1200",
+		"55AAEF000500E085",
+		"55AA0FFFB02800C0",
+		"1100",
+		"55AAEF0005006085",
+		"55AA0FFF4C2500C0",
+		"1000",
+		"55AAEF000500E084",
+		"55AA0FFFE82100C0",
+		"950",
+		"55AAEF000500A084",
+		"55AA0FFF362000C0",
+		"900",
+		"55AAEF0005006084",
+		"55AA0FFF841E00C0",
+		"850",
+		"55AAEF0005002084",
+		"55AA0FFFD21C00C0",
+		"800",
+		"55AAEF000500E083",
+		"55AA0FFF201B00C0",
+		"750",
+		"55AAEF000500A083",
+		"55AA0FFF6E1900C0",
+		"700",
+		"55AAEF0005006083",
+		"55AA0FFFBC1700C0",
+		"650",
+		"55AAEF0005002083",
+		"55AA0FFF0A1600C0",
+		"600",
+		"55AAEF000500E082",
+		"55AA0FFF581400C0",
+		"550",
+		"55AAEF000500A082",
+		"55AA0FFFA61200C0",
+		"500",
+		"55AAEF0005006082",
+		"55AA0FFFF41000C0",
+	};
+	unsigned char pllob_bin[10];
+	int i;
+	int found_pll = -1;
+
+	if (pll_freq == NULL)
+		found_pll = 0;
+	else
+	{
+		for(i = 0; i < 48; i++)
+		{
+			if (pll_freq_cmd[i][0] == '\0')
+				break;
+
+			applog(LOG_DEBUG, "GC3355: pll_freq_cmd[i] is %s, freq %s \n",pll_freq_cmd[i],pll_freq);
+			if (!strcmp(pll_freq, pll_freq_cmd[i]))
+			{
+				found_pll = i;
+				opt_pll_freq = atoi(pll_freq);
+			}
+		}
+
+		if (found_pll == -1)
+			found_pll = 0;
+	}
+
+	if (found_pll != -1)
+	{
+		applog(LOG_DEBUG, "GC3355: found freq %s in the support list\n", pll_freq);
+		memset(pllob_bin, 0, sizeof(pllob_bin));
+		applog(LOG_DEBUG, "GC3355: set freq %s, reg1=%s in the support list\n", pll_freq, pll_freq_cmd[found_pll + 1]);
+		hex2bin(pllob_bin, pll_freq_cmd[found_pll + 1], sizeof(pllob_bin));
+		icarus_write(fd, pllob_bin, 8);
+		usleep(1000);
+		memset(pllob_bin, 0, sizeof(pllob_bin));
+		applog(LOG_DEBUG, "GC3355: set freq %s, reg2=%s in the support list\n", pll_freq, pll_freq_cmd[found_pll + 2]);
+		hex2bin(pllob_bin, pll_freq_cmd[found_pll + 2], sizeof(pllob_bin));
+		icarus_write(fd, pllob_bin, 8);
+		usleep(1000);
+	}
+	else
+		applog(LOG_ERR, "GC3355: freq %s is not supported\n", pll_freq);
+}
+
+int gc3355_get_cts_status(int fd)
+{
+	int ret;
+	int status = 0;
+#ifdef WIN32
+	GetCommModemStatus(_get_osfhandle(fd), &status);
+	applog(LOG_DEBUG, "Get CTS Status is : %d [Windows: 0 is 1.2; 16 is 0.9]\n", status);
+	ret = (status == 0) ? 1 : 0;
+	return ret;
+#else
+	ioctl(fd, TIOCMGET, &status);
+	ret = (status & 0x20) ? 0 : 1;
+	applog(LOG_DEBUG, "Get CTS Status is : %d [Linux: 1 is 1.2; 0 is 0.9]\n", ret);
+	return ret;
+#endif
+}
+
+void gc3355_set_rts_status(int fd, unsigned int value)
+{
+#ifdef WIN32
+	DCB dcb;
+	memset(&dcb, 0, sizeof(DCB));
+	GetCommState(_get_osfhandle(fd), &dcb);
+	if (value != 0)
+		dcb.fRtsControl = RTS_CONTROL_ENABLE;
+	else
+		dcb.fRtsControl = RTS_CONTROL_DISABLE;
+	SetCommState(_get_osfhandle(fd), &dcb);
+#else
+	int rts_flag = 0;
+	ioctl(fd, TIOCMGET, &rts_flag);
+	if (value != 0)
+		rts_flag |= TIOCM_RTS;
+	else
+		rts_flag &= ~TIOCM_RTS;
+	ioctl(fd, TIOCMSET, &rts_flag);
+#endif
 }
 
 static
@@ -465,7 +785,7 @@ void gc3355_pll_freq_init2(int fd, int pll_freq)
 
 void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 {
-	unsigned char ob_bin[8];
+	unsigned char ob_bin[32];
 	int i;
 
 	//---sha2 unit---
@@ -506,6 +826,8 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 
 	for(i = 0; i < 5; i++)
 	{
+		memset(ob_bin, 0, sizeof(ob_bin));
+
 		if (sha2_gating[i][0] == '\0')
 			break;
 
@@ -518,10 +840,55 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 }
 
 static
+void gc3355_open_sha2_unit_single(int fd, unsigned int index)
+{
+	unsigned char ob_bin[32];
+	int i;
+
+	//---sha2 unit---
+	char sha2_gating[5][17] =
+	{
+		"55AAEF0200000000",
+		"55AAEF0300000000",
+		"55AAEF0400000000",
+		"55AAEF0500000000",
+		"55AAEF0600000000",
+	};
+	union
+	{
+	    unsigned int i32[5];
+	    unsigned char c8[20];
+	}sha2_group;
+
+	for(i = 0; i < 5; i++)
+		sha2_group.i32[i] = 0;
+
+    index = index%160;
+
+	sha2_group.i32[index / 32] += 1 << (index % 32);
+
+	for(i = 0; i < 20; i++)
+		sprintf(&sha2_gating[i / 4][8 + (i % 4) * 2], "%02x", sha2_group.c8[i]);
+	//---sha2 unit end---
+
+	for(i = 0; i < 5; i++)
+	{
+		memset(ob_bin, 0, sizeof(ob_bin));
+
+		if (sha2_gating[i][0] == '\0')
+			break;
+
+		hex2bin(ob_bin, sha2_gating[i], sizeof(ob_bin));
+		icarus_write(fd, ob_bin, 8);
+		usleep(DEFAULT_DELAY_TIME);
+	}
+}
+
+static
 void gc3355_open_sha2_unit_one_by_one(int fd, char *opt_sha2_gating)
 {
 	int unit_count = 0;
-	unsigned char ob_bin[8];
+	unsigned char ob_bin[32];
 	int i;
 
 	unit_count = atoi(opt_sha2_gating);
@@ -535,6 +902,7 @@ void gc3355_open_sha2_unit_one_by_one(int fd, char *opt_sha2_gating)
 	{
 		for(i = 0; i <= unit_count; i++)
 		{
+			memset(ob_bin, 0, sizeof(ob_bin));
 			hex2bin(ob_bin, sha2_single_open[i], sizeof(ob_bin));
 			icarus_write(fd, ob_bin, 8);
 			usleep(DEFAULT_DELAY_TIME * 2);
@@ -566,6 +934,9 @@ void gc3355_open_scrypt_unit(int fd, int status)
 		"55AA1F2814000000",
 		"",
 	};
+
+	unsigned char ob_bin[32];
+	int i = 0;
 
 	if (status == SCRYPT_UNIT_OPEN)
 	{
@@ -615,7 +986,7 @@ void gc3355_dualminer_init(int fd)
 		gc3355_pll_freq_init2(fd, opt_pll_freq);
 }
 
-void gc3355_init(int fd, char *sha2_unit, bool is_scrypt_only)
+void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only)
 {
 	if (gc3355_get_cts_status(fd) == 1)
 	{

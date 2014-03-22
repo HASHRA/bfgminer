@@ -64,37 +64,14 @@ bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct 
 	if(fd < 0)
 		return false;
 
-	const char detect_cmd[] = "55aac000909090900000000001000000";
-	unsigned char detect_data[16];
-	int size = sizeof(detect_data);
+	uint32_t fw_version = gc3355_get_firmware_version(fd);
 
-	hex2bin(detect_data, detect_cmd, size);
-
-	int written = gc3355_write(fd, detect_data, size);
-	if (written != size)
-	{
-		applog(LOG_ERR, "%s: Failed writing work to %s", gridseed_drv.dname, path);
-		gc3355_close(fd);
-		return false;
-	}
-
-	char buf[GC3355_READ_SIZE];
-	int read = gc3355_read(fd, buf, GC3355_READ_SIZE);
-	if (read != GC3355_READ_SIZE)
-	{
-		applog(LOG_ERR, "%s: Failed reading work from %s", gridseed_drv.dname, path);
-		gc3355_close(fd);
-		return false;
-	}
-
-	if (memcmp(buf, "\x55\xaa\xc0\x00\x90\x90\x90\x90", GC3355_READ_SIZE - 4) != 0)
+	if (fw_version == -1)
 	{
 		applog(LOG_ERR, "%s: Invalid detect response from %s", gridseed_drv.dname, path);
 		gc3355_close(fd);
 		return false;
 	}
-
-	uint32_t fw_version = le32toh(*(uint32_t *)(buf + 8));
 
 	struct cgpu_info *device = gridseed_alloc_device(path, driver, info);
 

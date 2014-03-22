@@ -13,10 +13,16 @@
 #define bfgminer_gc3355_h
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "miner.h"
 
- // GridSeed support begins here
+// GridSeed common code begins here
+
+extern
+uint32_t gc3355_get_firmware_version(int fd);
+
+// 5-chip GridSeed support begins here
 
 #define GC3355_DEFAULT_FREQUENCY	600
 #define GC3355_DEFAULT_CHIPS		5
@@ -59,7 +65,7 @@ extern
 void gc3355_set_core_freq(struct cgpu_info *device);
 
 
-// DualMiner support begins here
+// 1-chip DualMiner support begins here
 
 #define SCRYPT_UNIT_OPEN  0
 #define SCRYPT_UNIT_CLOSE 1

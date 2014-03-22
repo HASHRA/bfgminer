@@ -27,6 +27,8 @@
 
 #define GC3355_COMMAND_DELAY		20000
 
+#define GC3355_CHIP_NAME			"gc3355"
+
 static
 void gc3355_send_cmds(int fd, const char *cmds[])
 {
@@ -52,26 +54,57 @@ void gc3355_send_cmds(int fd, const char *cmds[])
 	}
 }
 
+uint32_t gc3355_get_firmware_version(int fd)
+{
+	const char detect_cmd[] = "55aac000909090900000000001000000"; // get firmware version of GC3355
+	unsigned char detect_data[16];
+	int size = sizeof(detect_data);
+
+	hex2bin(detect_data, detect_cmd, size);
+
+	int written = gc3355_write(fd, detect_data, size);
+	if (written != size)
+	{
+		applog(LOG_ERR, "%s: Failed writing work to %d", GC3355_CHIP_NAME, fd);
+		return -1;
+	}
+
+	char buf[GC3355_READ_SIZE];
+	int read = gc3355_read(fd, buf, GC3355_READ_SIZE);
+	if (read != GC3355_READ_SIZE)
+	{
+		applog(LOG_ERR, "%s: Failed reading work from %d", GC3355_CHIP_NAME, fd);
+		return -1;
+	}
+
+	// firmware response begins with 55aac000 90909090
+	if (memcmp(buf, "\x55\xaa\xc0\x00\x90\x90\x90\x90", GC3355_READ_SIZE - 4) != 0)
+	{
+		return -1;
+	}
+
+	uint32_t fw_version = le32toh(*(uint32_t *)(buf + 8));
+
+	return fw_version;
+}
+
 // 5-chip GridSeed support begins here
 
 #define GC3355_INIT_DELAY			200000
 
-
-#define GC3355_CHIP_NAME "gc3355"
-
 static
-const char *str_reset[] =
+const char *str_gcp_reset[] =
 {
-	"55AAC000808080800000000001000000", // Chip reset
+	"55AAC000808080800000000001000000", // GCP (GridChip) reset
 	NULL
 };
 
 static
 const char *str_init[] =
 {
-	"55AAC000C0C0C0C00500000001000000",
-	"55AAEF020000000000000000000000000000000000000000",
-	"55AAEF3020000000",
+	"55AAC000C0C0C0C00500000001000000", // set number of sub-chips (05 in this case)
+	"55AAEF020000000000000000000000000000000000000000", // power down all BTC modules
+	"55AAEF3020000000", // Enable BTC(?)
 	NULL
 };
 
@@ -79,7 +112,7 @@ static
 const char *str_scrypt_reset[] =
 {
 	"55AA1F2816000000",
-	"55AA1F2817000000",
+	"55AA1F2817000000", // Enable LTC(?)
 	NULL
 };
 
@@ -195,7 +228,7 @@ void gc3355_init_usborb(struct cgpu_info *device)
 {
 	int fd = device->device_fd;
 
-	gc3355_send_cmds(fd, str_reset);
+	gc3355_send_cmds(fd, str_gcp_reset);
 
 	usleep(GC3355_INIT_DELAY);
 
@@ -329,14 +362,15 @@ const char *pll_freq_400M_cmd[] =
 static
 const char *sha2_gating[] =
 {
-	"55AAEF0200000000",
-	"55AAEF0300000000",
-	"55AAEF0400000000",
-	"55AAEF0500000000",
-	"55AAEF0600000000",
+	"55AAEF0200000000", // Chip 1 - power down BTC (unless masked w/PLL)
+	"55AAEF0300000000", // Chip 2
+	"55AAEF0400000000", // Chip 3
+	"55AAEF0500000000", // Chip 4
+	"55AAEF0600000000", // Chip 5
 	"",
 };
 
+// maps the above SHA chip gating with PLL frequencies
 static
 const char *sha2_single_open[] =
 {
@@ -506,14 +540,9 @@ const char *sha2_single_open[] =
 static
 const char *scrypt_only_init[] =
 {
-	"55AAEF0200000000",
-	"55AAEF0300000000",
-	"55AAEF0400000000",
-	"55AAEF0500000000",
-	"55AAEF0600000000",
 	"55AAEF3040000000",
-	"55AA1F2810000000",
-	"55AA1F2813000000",
+	"55AA1F2810000000", // Close LTC(?)
+	"55AA1F2813000000", // Open LTC(?)
 	"",
 };
 
@@ -534,8 +563,8 @@ void gc3355_opt_scrypt_init(int fd)
 {
 	const char *initscrypt_ob[] =
 	{
-		"55AA1F2810000000",
-		"55AA1F2813000000",
+		"55AA1F2810000000", // Close LTC(?)
+		"55AA1F2813000000", // Open LTC(?)
 		""
 	};
 
@@ -720,7 +749,6 @@ void gc3355_pll_freq_init2(int fd, int pll_freq)
 	}
 }
 
-
 void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 {
 	unsigned char ob_bin[8];
@@ -729,7 +757,7 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 	//---sha2 unit---
 	char sha2_gating[5][17] =
 	{
-		"55AAEF0200000000",
+		"55AAEF0200000000", // power down all BTC modules
 		"55AAEF0300000000",
 		"55AAEF0400000000",
 		"55AAEF0500000000",
@@ -738,7 +766,7 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 	union
 	{
 	    unsigned int i32[5];
-	    unsigned char c8[20] ;
+	    unsigned char c8[20];
 	}sha2_group;
 
 	int sha2_number=0;
@@ -784,7 +812,7 @@ void gc3355_open_sha2_unit_single(int fd, unsigned int index)
 	//---sha2 unit---
 	char sha2_gating[5][17] =
 	{
-		"55AAEF0200000000",
+		"55AAEF0200000000", // power down all BTC modules
 		"55AAEF0300000000",
 		"55AAEF0400000000",
 		"55AAEF0500000000",
@@ -850,6 +878,7 @@ void gc3355_open_sha2_unit_one_by_one(int fd, char *opt_sha2_gating)
 
 void gc3355_opt_scrypt_only_init(int fd)
 {
+	gc3355_send_cmds(fd, sha2_gating);
 	gc3355_send_cmds(fd, scrypt_only_init);
 
 	gc3355_pll_freq_init2(fd, opt_pll_freq);
@@ -860,13 +889,13 @@ void gc3355_open_scrypt_unit(int fd, int status)
 {
 	const char *scrypt_only_ob[] =
 	{
-		"55AA1F2810000000",
+		"55AA1F2810000000", // Close LTC(?)
 		"",
 	};
 
 	const char *scrypt_ob[] =
 	{
-		"55AA1F2814000000",
+		"55AA1F2814000000", // Close DualMode LTC(?)
 		"",
 	};
 
@@ -886,33 +915,30 @@ void gc3355_open_scrypt_unit(int fd, int status)
 	}
 }
 
+// initialize for BTC (maybe/probably Dual Mode)
 void gc3355_dualminer_init(int fd)
 {
 
 	const char *init_ob[] =
 	{
-#if 1
-		"55AAEF0200000000",
-		"55AAEF0300000000",
-		"55AAEF0400000000",
-		"55AAEF0500000000",
-		"55AAEF0600000000",
-#endif
-		"55AAEF3020000000",
-		"55AA1F2817000000",
+		"55AAEF3020000000", // Enable BTC(?)
+		"55AA1F2817000000", // Enable LTC(?)
 		""
 	};
 	const char *initscrypt_ob[] =
 	{
-		"55AA1F2814000000",
-		"55AA1F2817000000",
+		"55AA1F2814000000", // Close DualMode LTC(?)
+		"55AA1F2817000000", // Enable LTC(?)
 		""
 	};
 
 	if (opt_scrypt)
 		gc3355_send_cmds(fd, initscrypt_ob);
 	else
+	{
+		gc3355_send_cmds(fd, sha2_gating);
 		gc3355_send_cmds(fd, init_ob);
+	}
 
 	if (!opt_scrypt)
 		gc3355_pll_freq_init2(fd, opt_pll_freq);

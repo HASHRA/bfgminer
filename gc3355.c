@@ -23,9 +23,37 @@
   #include <io.h>
 #endif
 
-// GridSeed support begins here
+// GridSeed common code begins here
 
 #define GC3355_COMMAND_DELAY		20000
+
+static
+void gc3355_send_cmds(int fd, const char *cmds[])
+{
+	int i = 0;
+	unsigned char ob_bin[512];
+	for(i = 0 ;; i++)
+	{
+		memset(ob_bin, 0, sizeof(ob_bin));
+
+		const char *cmd = cmds[i];
+
+		if (cmd == NULL)
+			break;
+
+		if (cmds[i][0] == 0)
+			break;
+
+		int size = strlen(cmd) / 2;
+		hex2bin(ob_bin, cmd, size);
+		gc3355_write(fd, ob_bin, size);
+
+		usleep(GC3355_COMMAND_DELAY);
+	}
+}
+
+// 5-chip GridSeed support begins here
+
 #define GC3355_INIT_DELAY			200000
 
 
@@ -132,8 +160,52 @@ int gc3355_close(int fd)
 {
 	return serial_close(fd);
 }
+static
+int gc3355_find_freq_index(int freq)
+{
+	for (int i = 0; opt_frequency[i] != -1; i++)
+		if (freq == opt_frequency[i])
+			return i;
 
-// DualMiner support begins here
+	return gc3355_find_freq_index(GC3355_DEFAULT_FREQUENCY);
+}
+
+void gc3355_set_core_freq(struct cgpu_info *device)
+{
+	struct gc3355_info *info = (struct gc3355_info *)(device->device_data);
+	int fd = device->device_fd;
+	int idx = gc3355_find_freq_index(info->freq);
+
+	unsigned char freq_cmd[8];
+	memcpy(freq_cmd, bin_frequency[idx], 8);
+	gc3355_write(fd, freq_cmd, sizeof(freq_cmd));
+
+	usleep(GC3355_COMMAND_DELAY);
+
+	applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, info->freq);
+}
+
+void gc3355_scrypt_reset(struct cgpu_info *device)
+{
+	int fd = device->device_fd;
+	gc3355_send_cmds(fd, str_scrypt_reset);
+}
+
+void gc3355_init_usborb(struct cgpu_info *device)
+{
+	int fd = device->device_fd;
+
+	gc3355_send_cmds(fd, str_reset);
+
+	usleep(GC3355_INIT_DELAY);
+
+	gc3355_send_cmds(fd, str_init);
+	gc3355_send_cmds(fd, str_scrypt_reset);
+
+	gc3355_set_core_freq(device);
+}
+
+// 1-chip DualMiner support begins here
 
 #define DEFAULT_DELAY_TIME 2000
 
@@ -453,102 +525,9 @@ bool opt_dual_mode = false;
 
 void gc3355_dual_reset(int fd)
 {
-	static int i = 0;
-
-#ifdef WIN32
-	DCB dcb;
-
-	memset(&dcb, 0, sizeof(DCB));
-	GetCommState(_get_osfhandle(fd), &dcb);
-	dcb.fDtrControl = DTR_CONTROL_ENABLE;
-	SetCommState(_get_osfhandle(fd), &dcb);
-	Sleep(1);
-	GetCommState(_get_osfhandle(fd), &dcb);
-	dcb.fDtrControl = DTR_CONTROL_DISABLE;
-	SetCommState(_get_osfhandle(fd), &dcb);
-
-#else
-
-	int dtr_flag = 0;
-	ioctl(fd, TIOCMGET, &dtr_flag);
-	dtr_flag |= TIOCM_DTR;
-	ioctl(fd, TIOCMSET, &dtr_flag);
-	usleep(1000);
-	ioctl(fd, TIOCMGET, &dtr_flag);
-	dtr_flag &= ~TIOCM_DTR;
-	ioctl(fd, TIOCMSET, &dtr_flag);
-
-#endif
-}
-
-static
-void gc3355_send_cmds(int fd, const char *cmds[])
-{
-	int i = 0;
-	unsigned char ob_bin[512];
-	for(i = 0 ;; i++)
-	{
-		memset(ob_bin, 0, sizeof(ob_bin));
-
-		const char *cmd = cmds[i];
-
-		if (cmd == NULL)
-			break;
-
-		if (cmds[i][0] == 0)
-			break;
-
-		int size = strlen(cmd) / 2;
-		hex2bin(ob_bin, cmd, size);
-		gc3355_write(fd, ob_bin, size);
-
-		usleep(GC3355_COMMAND_DELAY);
-	}
-}
-
-static
-int gc3355_find_freq_index(int freq)
-{
-	for (int i = 0; opt_frequency[i] != -1; i++)
-		if (freq == opt_frequency[i])
-			return i;
-
-	return gc3355_find_freq_index(GC3355_DEFAULT_FREQUENCY);
-}
-
-void gc3355_set_core_freq(struct cgpu_info *device)
-{
-	struct gc3355_info *info = (struct gc3355_info *)(device->device_data);
-	int fd = device->device_fd;
-	int idx = gc3355_find_freq_index(info->freq);
-
-	unsigned char freq_cmd[8];
-	memcpy(freq_cmd, bin_frequency[idx], 8);
-	gc3355_write(fd, freq_cmd, sizeof(freq_cmd));
-
-	usleep(GC3355_COMMAND_DELAY);
-
-	applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, info->freq);
-}
-
-void gc3355_scrypt_reset(struct cgpu_info *device)
-{
-	int fd = device->device_fd;
-	gc3355_send_cmds(fd, str_scrypt_reset);
-}
-
-void gc3355_init_usborb(struct cgpu_info *device)
-{
-	int fd = device->device_fd;
-
-	gc3355_send_cmds(fd, str_reset);
-
-	usleep(GC3355_INIT_DELAY);
-
-	gc3355_send_cmds(fd, str_init);
-	gc3355_send_cmds(fd, str_scrypt_reset);
-
-	gc3355_set_core_freq(device);
+	set_serial_dtr(fd, 1);
+	cgsleep_ms(1000);
+	set_serial_dtr(fd, 0);
 }
 
 void gc3355_opt_scrypt_init(int fd)
@@ -654,45 +633,6 @@ void gc3355_pll_freq_init(int fd, char *pll_freq)
 		applog(LOG_ERR, "GC3355: freq %s is not supported\n", pll_freq);
 }
 
-int gc3355_get_cts_status(int fd)
-{
-	int ret;
-	int status = 0;
-#ifdef WIN32
-	GetCommModemStatus(_get_osfhandle(fd), &status);
-	applog(LOG_DEBUG, "Get CTS Status is : %d [Windows: 0 is 1.2; 16 is 0.9]\n", status);
-	ret = (status == 0) ? 1 : 0;
-	return ret;
-#else
-	ioctl(fd, TIOCMGET, &status);
-	ret = (status & 0x20) ? 0 : 1;
-	applog(LOG_DEBUG, "Get CTS Status is : %d [Linux: 1 is 1.2; 0 is 0.9]\n", ret);
-	return ret;
-#endif
-}
-
-void gc3355_set_rts_status(int fd, unsigned int value)
-{
-#ifdef WIN32
-	DCB dcb;
-	memset(&dcb, 0, sizeof(DCB));
-	GetCommState(_get_osfhandle(fd), &dcb);
-	if (value != 0)
-		dcb.fRtsControl = RTS_CONTROL_ENABLE;
-	else
-		dcb.fRtsControl = RTS_CONTROL_DISABLE;
-	SetCommState(_get_osfhandle(fd), &dcb);
-#else
-	int rts_flag = 0;
-	ioctl(fd, TIOCMGET, &rts_flag);
-	if (value != 0)
-		rts_flag |= TIOCM_RTS;
-	else
-		rts_flag &= ~TIOCM_RTS;
-	ioctl(fd, TIOCMSET, &rts_flag);
-#endif
-}
-
 static
 void gc3355_pll_freq_init2(int fd, int pll_freq)
 {
@@ -783,7 +723,7 @@ void gc3355_pll_freq_init2(int fd, int pll_freq)
 
 void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 {
-	unsigned char ob_bin[32];
+	unsigned char ob_bin[8];
 	int i;
 
 	//---sha2 unit---
@@ -824,8 +764,6 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 
 	for(i = 0; i < 5; i++)
 	{
-		memset(ob_bin, 0, sizeof(ob_bin));
-
 		if (sha2_gating[i][0] == '\0')
 			break;
 
@@ -886,7 +824,7 @@ static
 void gc3355_open_sha2_unit_one_by_one(int fd, char *opt_sha2_gating)
 {
 	int unit_count = 0;
-	unsigned char ob_bin[32];
+	unsigned char ob_bin[8];
 	int i;
 
 	unit_count = atoi(opt_sha2_gating);
@@ -900,7 +838,6 @@ void gc3355_open_sha2_unit_one_by_one(int fd, char *opt_sha2_gating)
 	{
 		for(i = 0; i <= unit_count; i++)
 		{
-			memset(ob_bin, 0, sizeof(ob_bin));
 			hex2bin(ob_bin, sha2_single_open[i], sizeof(ob_bin));
 			icarus_write(fd, ob_bin, 8);
 			usleep(DEFAULT_DELAY_TIME * 2);
@@ -932,9 +869,6 @@ void gc3355_open_scrypt_unit(int fd, int status)
 		"55AA1F2814000000",
 		"",
 	};
-
-	unsigned char ob_bin[32];
-	int i = 0;
 
 	if (status == SCRYPT_UNIT_OPEN)
 	{

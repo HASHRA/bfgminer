@@ -11,13 +11,11 @@
 
 #include "gc3355.h"
 
-#include <unistd.h>
 #include <string.h>
-
 #include "miner.h"
-#include "lowl-vcom.h"
 #include "driver-icarus.h"
 #include "logging.h"
+#include "lowl-vcom.h"
 
 #ifndef WIN32
   #include <sys/ioctl.h>

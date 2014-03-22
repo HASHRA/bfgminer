@@ -12,7 +12,6 @@
 #ifndef bfgminer_gc3355_h
 #define bfgminer_gc3355_h
 
-#include <stdint.h>
 #include <stdbool.h>
 
 #include "miner.h"

@@ -209,16 +209,6 @@ ssize_t gc3355_write(int fd, const void * const buf, const size_t size)
 	return write(fd, buf, size);
 }
 
-int gc3355_open(const char *path)
-{
-	return serial_open(path, 115200, 1, true);
-}
-
-int gc3355_close(int fd)
-{
-	return serial_close(fd);
-}
-
 void gc3355_scrypt_reset(struct cgpu_info *device)
 {
 	int fd = device->device_fd;
@@ -302,7 +292,7 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 		for(i = 0; i <= unit_count; i++)
 		{
 			hex2bin(ob_bin, sha2_single_open[i], sizeof(ob_bin));
-			icarus_write(fd, ob_bin, 8);
+			gc3355_write(fd, ob_bin, 8);
 			usleep(DEFAULT_DELAY_TIME * 2);
 		}
 		opt_sha2_number = unit_count;

@@ -49,11 +49,8 @@ struct gc3355_state
 	struct timeval scanhash_time;
 };
 
-extern
-int gc3355_open(const char *path);
-
-extern
-int gc3355_close(int fd);
+#define gc3355_open(path)  serial_open(path, 115200, 1, true)
+#define gc3355_close(fd)  serial_close(fd)
 
 extern
 int gc3355_read(int fd, char *buf, size_t size);

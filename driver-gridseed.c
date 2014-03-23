@@ -48,7 +48,6 @@ struct gc3355_info *gridseed_alloc_info()
 		quit(1, "Failed to malloc gc3355_info");
 
 	info->freq = GC3355_ORB_SM_DEFAULT_FREQUENCY;
-	info->chips = GC3355_ORB_DEFAULT_CHIPS;
 
 	return info;
 }
@@ -168,7 +167,7 @@ int64_t gridseed_calc_hashes(struct thr_info *thr)
 	int elapsed_ms = ms_tdiff(&state->scanhash_time, &old_scanhash_time);
 
 	struct gc3355_info *info = device->device_data;
-	return GRIDSEED_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * info->chips);
+	return GRIDSEED_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * GC3355_ORB_DEFAULT_CHIPS);
 }
 
 static

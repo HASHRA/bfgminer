@@ -114,17 +114,20 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating);
 
 
-	applog(LOG_DEBUG, "%"PRIpreprv": scrypt: %d, scrypt only: %d\n", icarus->proc_repr, opt_scrypt, opt_scrypt);
-	if (gc3355_get_cts_status(fd) != 1)
+	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
+		(opt_scrypt))
 	{
-		// Scrypt + SHA2 mode
-		if (opt_scrypt)
-		{
-			struct ICARUS_INFO *info = icarus->device_data;
-			info->Hs = DUALMINER_SCRYPT_DM_HASH_TIME;
-		}
+		// adjust hash-rate for voltage
+		struct ICARUS_INFO *info = icarus->device_data;
+		info->Hs = DUALMINER_SCRYPT_DM_HASH_TIME;
 	}
-	applog(LOG_DEBUG, "%"PRIpreprv": dualminer: Init: pll=%d, sha2num=%d", icarus->proc_repr, opt_pll_freq, opt_sha2_number);
+
+	applog(LOG_DEBUG, "%"PRIpreprv": dualminer: Init: pll=%d, sha2num=%d, scrypt: %d, scrypt only: %d",
+		   icarus->proc_repr,
+		   opt_pll_freq,
+		   opt_sha2_number,
+		   opt_scrypt,
+		   opt_scrypt && !opt_dual_mode);
 }
 
 // ICARUS_INFO functions - icarus-common.h

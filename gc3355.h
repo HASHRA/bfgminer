@@ -103,9 +103,6 @@ extern
 void gc3355_init_usbstick(int fd, char *sha2_unit);
 
 extern
-void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating);
-
-extern
 void gc3355_open_scrypt_unit(int fd, int status);
 
 #define gc3355_get_cts_status(fd)  (get_serial_cts(fd) ? 0 : 1)

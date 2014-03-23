@@ -311,6 +311,17 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 		gc3355_send_cmds(fd, sha2_gating_tmpl);
 }
 
+void gc3355_sha2_init(int fd)
+{
+	gc3355_send_cmds(fd, sha2_gating_tmpl);
+	gc3355_send_cmds(fd, sha2_init);
+}
+
+void gc3355_scrypt_init(int fd)
+{
+	gc3355_send_cmds(fd, scrypt_init);
+}
+
 void gc3355_scrypt_only_init(int fd)
 {
 	gc3355_send_cmds(fd, sha2_gating_tmpl);
@@ -320,51 +331,23 @@ void gc3355_scrypt_only_init(int fd)
 	gc3355_set_pll_freq(fd, opt_pll_freq);
 }
 
-// initialize for Dual Mode
-void gc3355_dualmode_init(int fd)
+void gc3355_init_usbstick(int fd, char *sha2_unit)
 {
-	if (opt_scrypt)
-		gc3355_send_cmds(fd, scrypt_init);
-	else
-	{
-		gc3355_send_cmds(fd, sha2_gating_tmpl);
-		gc3355_send_cmds(fd, sha2_init);
-	}
-
-	if (!opt_scrypt)
-		gc3355_set_pll_freq(fd, opt_pll_freq);
-}
-
-void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only)
-{
+	// reset chips
 	gc3355_send_cmds(fd, str_gcp_reset);
 	gc3355_send_cmds(fd, str_btc_reset);
 
-	if (sha2_unit != NULL)
-		gc3355_open_sha2_unit(fd, sha2_unit);
-	else
+	if (opt_scrypt)
+		return;
+
+	// open sha2 units
+	if (sha2_unit == NULL)
 	{
 		if (gc3355_get_cts_status(fd) == 1)
-		{
-			//1.2v - Scrypt mode
-			if (opt_scrypt)
-			{
-				if (is_scrypt_only)
-					gc3355_scrypt_only_init(fd);
-			}
-			else
-				gc3355_open_sha2_unit(fd, DEFAULT_1_2V_sha2);
-		}
+			sha2_unit = DEFAULT_1_2V_sha2; //dip-switch in L position
 		else
-		{
-			//0.9v - Scrypt + SHA mode
-			if (opt_scrypt)
-			{
-				if (is_scrypt_only)
-					gc3355_scrypt_only_init(fd);
-			}
-			else
-				gc3355_open_sha2_unit(fd, DEFAULT_0_9V_sha2);
-		}
+			sha2_unit = DEFAULT_0_9V_sha2; // dip-switch in B position
 	}
+
+	gc3355_open_sha2_unit(fd, sha2_unit);
 }

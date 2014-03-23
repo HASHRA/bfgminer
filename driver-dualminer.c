@@ -77,14 +77,18 @@ const struct bfg_set_device_definition dualminer_set_device_funcs[];
 static
 void dualminer_bootstrap_device(int fd)
 {
-	set_serial_dtr(fd, DTR_HIGH);
+	gc3355_set_dtr_status(fd, DTR_HIGH);
 	cgsleep_ms(1000);
-	set_serial_dtr(fd, DTR_LOW);
+	gc3355_set_dtr_status(fd, DTR_LOW);
 
 	if (opt_scrypt && !opt_dual_mode)
 		gc3355_scrypt_only_init(fd);
 	else
-		gc3355_dualmode_init(fd);
+	{
+		gc3355_sha2_init(fd);
+		gc3355_scrypt_init(fd);
+		gc3355_set_pll_freq(fd, opt_pll_freq);
+	}
 
 	usleep(1000);
 }
@@ -92,47 +96,38 @@ void dualminer_bootstrap_device(int fd)
 static
 void dualminer_teardown_device(int fd)
 {
-	set_serial_dtr(fd, DTR_LOW);
+	gc3355_set_dtr_status(fd, DTR_LOW);
 	gc3355_set_rts_status(fd, RTS_LOW);
 }
 
-static
-bool dualminer_init(struct thr_info * const thr)
-{
-	struct cgpu_info * const cgpu = thr->cgpu;
-	
-	if (opt_scrypt)
-		cgpu->min_nonce_diff = 1./0x10000;
-	
-	return icarus_init(thr);
-}
-
+// runs when job starts and the device has been reset (or first run)
 static
 void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
-	struct ICARUS_INFO *info = icarus->device_data;
 	int fd = icarus->device_fd;
 
+
 	dualminer_bootstrap_device(fd);
+	gc3355_set_rts_status(fd, RTS_HIGH);
+	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating);
 
-	if (opt_scrypt)
-		gc3355_set_rts_status(fd, RTS_HIGH);
 
-	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating, !opt_dual_mode);
 	applog(LOG_DEBUG, "%"PRIpreprv": scrypt: %d, scrypt only: %d\n", icarus->proc_repr, opt_scrypt, opt_scrypt);
-
 	if (gc3355_get_cts_status(fd) != 1)
 	{
 		// Scrypt + SHA2 mode
 		if (opt_scrypt)
+		{
+			struct ICARUS_INFO *info = icarus->device_data;
 			info->Hs = DUALMINER_SCRYPT_DM_HASH_TIME;
+		}
 	}
-
 	applog(LOG_DEBUG, "%"PRIpreprv": dualminer: Init: pll=%d, sha2num=%d", icarus->proc_repr, opt_pll_freq, opt_sha2_number);
 }
 
 // ICARUS_INFO functions - icarus-common.h
 
+// runs after fd is opened but before the device detection code
 static
 bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __maybe_unused info)
 {
@@ -141,6 +136,7 @@ bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __m
 	return true;
 }
 
+// runs each time a job starts
 static
 bool dualminer_job_start(struct thr_info * const thr)
 {
@@ -154,7 +150,7 @@ bool dualminer_job_start(struct thr_info * const thr)
 	if (opt_scrypt)
 	{
 		if (opt_dual_mode)
-			gc3355_dualmode_init(fd);
+			gc3355_scrypt_init(fd);
 		else
 			gc3355_scrypt_restart(fd);
 	}
@@ -239,6 +235,17 @@ bool dualminer_lowl_probe(const struct lowlevel_device_info * const info)
 }
 
 static
+bool dualminer_thread_init(struct thr_info * const thr)
+{
+	struct cgpu_info * const cgpu = thr->cgpu;
+
+	if (opt_scrypt)
+		cgpu->min_nonce_diff = 1./0x10000;
+
+	return icarus_init(thr);
+}
+
+static
 void dualminer_thread_shutdown(struct thr_info *thr)
 {
 	// dualminer teardown
@@ -314,7 +321,7 @@ void dualminer_drv_init()
 	dualminer_drv.name = "DMU";
 	dualminer_drv.supported_algos = POW_SCRYPT | POW_SHA256D;
 	dualminer_drv.lowl_probe = dualminer_lowl_probe;
-	dualminer_drv.thread_init = dualminer_init;
+	dualminer_drv.thread_init = dualminer_thread_init;
 	dualminer_drv.thread_shutdown = dualminer_thread_shutdown;
 	dualminer_drv.job_prepare = dualminer_job_prepare;
 	dualminer_drv.set_device = dualminer_set_device;

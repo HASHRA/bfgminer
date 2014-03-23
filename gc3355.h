@@ -70,9 +70,6 @@ void gc3355_scrypt_reset(struct cgpu_info *device);
 
 // 1-chip DualMiner support begins here
 
-#define SCRYPT_UNIT_OPEN  0
-#define SCRYPT_UNIT_CLOSE 1
-
 extern
 char *opt_dualminer_sha2_gating;
 
@@ -91,6 +88,12 @@ extern
 bool opt_dual_mode;
 
 extern
+void gc3355_sha2_init(int fd);
+
+extern
+void gc3355_scrypt_init(int fd);
+
+extern
 void gc3355_scrypt_only_init(int fd);
 
 extern
@@ -100,7 +103,7 @@ extern
 void gc3355_scrypt_restart(int fd);
 
 extern
-void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only);
+void gc3355_init_usbstick(int fd, char *sha2_unit);
 
 extern
 void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating);
@@ -110,5 +113,6 @@ void gc3355_open_scrypt_unit(int fd, int status);
 
 #define gc3355_get_cts_status(fd)  (get_serial_cts(fd) ? 0 : 1)
 #define gc3355_set_rts_status(fd, val)  set_serial_rts(fd, val)
+#define gc3355_set_dtr_status(fd, val)  set_serial_dtr(fd, val)
 
 #endif

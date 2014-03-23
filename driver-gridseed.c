@@ -82,7 +82,7 @@ bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct 
 
 	device->device_fd = fd;
 
-	gc3355_init_usborb(device);
+	gc3355_init_usborb(device->device_fd, info->freq, false);
 
 	applog(LOG_INFO, "Found %"PRIpreprv" at %s", device->proc_repr, path);
 	applog(LOG_DEBUG, "%"PRIpreprv": Init: firmware=%d", device->proc_repr, fw_version);
@@ -148,7 +148,7 @@ bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *wor
 
 	cgtime(&state->scanhash_time);
 
-	gc3355_scrypt_reset(device);
+	gc3355_scrypt_reset(device->device_fd);
 	gc3355_scrypt_prepare_work(cmd, work);
 
 	return (gc3355_write(device->device_fd, cmd, sizeof(cmd)) == sizeof(cmd));

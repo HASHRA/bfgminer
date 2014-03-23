@@ -77,7 +77,9 @@ const struct bfg_set_device_definition dualminer_set_device_funcs[];
 static
 void dualminer_teardown_device(int fd)
 {
+	// set data terminal ready (DTR) status
 	gc3355_set_dtr_status(fd, DTR_HIGH);
+	// set request to send (RTS) status
 	gc3355_set_rts_status(fd, RTS_LOW);
 }
 
@@ -87,8 +89,9 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
 	int fd = icarus->device_fd;
 
-	gc3355_init_usbstick(fd, opt_sha2_units);
+	gc3355_init_usbstick(fd, opt_pll_freq, false);
 
+	// get clear to send (CTS) status
 	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
 		(opt_scrypt))
 	{
@@ -110,7 +113,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 static
 bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __maybe_unused info)
 {
-	gc3355_init_usbstick(fd, opt_sha2_units);
+	gc3355_init_usbstick(fd, opt_pll_freq, true);
 
 	return true;
 }

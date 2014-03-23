@@ -17,7 +17,7 @@
 
 #include "miner.h"
 
-// Options configurable by the end-user
+// options configurable by the end-user
 
 extern
 int opt_sha2_units;
@@ -25,9 +25,9 @@ int opt_sha2_units;
 extern
 int opt_pll_freq;
 
-//mining both Scrypt & SHA2 at the same time with two processes
-//SHA2 process must be run first, no arg requirements, first serial port will be used
-//Scrypt process must be launched after, --scrypt and --dual-mode args required
+// mining both Scrypt & SHA2 at the same time with two processes
+// SHA2 process must be run first, no arg requirements, first serial port will be used
+// Scrypt process must be launched after, --scrypt and --dual-mode args required
 extern
 bool opt_dual_mode;
 
@@ -66,13 +66,10 @@ extern
 ssize_t gc3355_write(int fd, const void * const buf, const size_t size);
 
 extern
-void gc3355_init_usborb(struct cgpu_info *device);
+void gc3355_init_usborb(int fd, int pll_freq, bool detect_only);
 
 extern
-void gc3355_init_usbstick(int fd, int sha2_units);
-
-extern
-void gc3355_sha2_init(int fd);
+void gc3355_init_usbstick(int fd, int pll_freq, bool detect_only);
 
 extern
 void gc3355_scrypt_init(int fd);
@@ -84,10 +81,7 @@ extern
 void gc3355_scrypt_restart(int fd);
 
 extern
-void gc3355_scrypt_reset(struct cgpu_info *device);
-
-extern
-void gc3355_open_scrypt_unit(int fd, int status);
+void gc3355_scrypt_reset(int fd);
 
 extern
 void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work);
@@ -101,8 +95,17 @@ uint32_t gc3355_get_firmware_version(int fd);
 extern
 void gc3355_set_pll_freq(int fd, int pll_freq);
 
+// get clear to send (CTS) status
+// Indicates DCE is ready to accept data.
 #define gc3355_get_cts_status(fd)  (get_serial_cts(fd) ? 0 : 1)
+
+// set request to send (RTS) status
+// DTE requests the DCE prepare to receive data.
 #define gc3355_set_rts_status(fd, val)  set_serial_rts(fd, val)
+
+// set data terminal ready (DTR) status
+// http://en.wikipedia.org/wiki/Data_Terminal_Ready
+// indicate that the terminal is ready for communications
 #define gc3355_set_dtr_status(fd, val)  set_serial_dtr(fd, val)
 
 #endif

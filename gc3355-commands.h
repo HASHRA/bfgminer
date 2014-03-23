@@ -18,7 +18,7 @@ static
 const char *firmware_request_cmd[] =
 {
 	"55AAC000909090900000000001000000", // get firmware version of GC3355
-	"",
+	NULL
 };
 
 static
@@ -26,7 +26,7 @@ const char *pll_freq_1200M_cmd[] =
 {
 	"55AAEF000500E085",
 	"55AA0FFFB02800C0",
-	"",
+	NULL
 };
 
 static
@@ -34,7 +34,7 @@ const char *pll_freq_1100M_cmd[] =
 {
 	"55AAEF0005006085",
 	"55AA0FFF4C2500C0",
-	"",
+	NULL
 };
 
 static
@@ -42,7 +42,7 @@ const char *pll_freq_1000M_cmd[] =
 {
 	"55AAEF000500E084",
 	"55AA0FFFE82100C0",
-	"",
+	NULL
 };
 
 static
@@ -50,7 +50,7 @@ const char *pll_freq_950M_cmd[] =
 {
 	"55AAEF000500A084",
 	"55AA0FFF362000C0",
-	"",
+	NULL
 };
 
 static
@@ -58,7 +58,7 @@ const char *pll_freq_900M_cmd[] =
 {
 	"55AAEF0005006084",
 	"55AA0FFF841E00C0",
-	"",
+	NULL
 };
 
 static
@@ -66,7 +66,7 @@ const char *pll_freq_850M_cmd[] =
 {
 	"55AAEF0005002084",
 	"55AA0FFFD21C00C0",
-	"",
+	NULL
 };
 
 static
@@ -74,7 +74,7 @@ const char *pll_freq_800M_cmd[] =
 {
 	"55AAEF000500E083",
 	"55AA0FFF201B00C0",
-	"",
+	NULL
 };
 
 static
@@ -82,7 +82,7 @@ const char *pll_freq_750M_cmd[] =
 {
 	"55AAEF000500A083",
 	"55AA0FFF6E1900C0",
-	"",
+	NULL
 };
 
 static
@@ -90,7 +90,7 @@ const char *pll_freq_700M_cmd[] =
 {
 	"55AAEF0005006083",
 	"55AA0FFFBC1700C0",
-	"",
+	NULL
 };
 
 static
@@ -98,7 +98,7 @@ const char *pll_freq_650M_cmd[] =
 {
 	"55AAEF0005002083",
 	"55AA0FFF0A1600C0",
-	"",
+	NULL
 };
 
 static
@@ -106,7 +106,7 @@ const char *pll_freq_600M_cmd[] =
 {
 	"55AAEF000500E082",
 	"55AA0FFF581400C0",
-	"",
+	NULL
 };
 
 static
@@ -114,7 +114,7 @@ const char *pll_freq_550M_cmd[] =
 {
 	"55AAEF000500A082",
 	"55AA0FFFA61200C0",
-	"",
+	NULL
 };
 
 static
@@ -122,7 +122,7 @@ const char *pll_freq_500M_cmd[] =
 {
 	"55AAEF0005006082",
 	"55AA0FFFF41000C0",
-	"",
+	NULL
 };
 
 static
@@ -130,7 +130,7 @@ const char *pll_freq_400M_cmd[] =
 {
 	"55AAEF000500E081",
 	"55AA0FFF900D00C0",
-	"",
+	NULL
 };
 
 // SHA-2 commands
@@ -143,7 +143,7 @@ const char *sha2_gating_cmd[] =
 	"55AAEF0400000000", // Chip 3
 	"55AAEF0500000000", // Chip 4
 	"55AAEF0600000000", // Chip 5
-	"",
+	NULL
 };
 
 // maps the above SHA chip gating with SHA-2 units
@@ -310,7 +310,7 @@ const char *sha2_open_cmd[] =
 	"55AAEF063FFFFFFF",
 	"55AAEF067FFFFFFF",
 	"55AAEF06FFFFFFFF",
-	"",
+	NULL
 };
 
 static
@@ -318,7 +318,7 @@ const char *sha2_init_cmd[] =
 {
 	"55AAEF3020000000", // Enable SHA-2
 	"55AA1F2817000000", // Enable GCP
-	""
+	NULL
 };
 
 // Scrypt commands
@@ -327,7 +327,7 @@ static
 const char *scrypt_only_init_cmd[] =
 {
 	"55AAEF3040000000",
-	"",
+	NULL
 };
 
 static
@@ -335,7 +335,7 @@ const char *scrypt_init_cmd[] =
 {
 	"55AA1F2814000000", // Enable Scrypt
 	"55AA1F2817000000", // Enable GCP
-	""
+	NULL
 };
 
 static
@@ -343,7 +343,15 @@ const char *scrypt_restart_cmd[] =
 {
 	"55AA1F2810000000", // Close Scrypt(?)
 	"55AA1F2813000000", // Open Scrypt(?)
-	""
+	NULL
+};
+
+static
+const char *scrypt_reset_cmd[] =
+{
+	"55AA1F2816000000", // Reset Scrypt(?)
+	"55AA1F2817000000", // Enable GCP(?)
+	NULL
 };
 
 static

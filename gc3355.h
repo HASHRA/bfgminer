@@ -97,7 +97,7 @@ extern
 void gc3355_dualmode_init(int fd);
 
 extern
-void gc3355_scrypt_init(int fd);
+void gc3355_scrypt_restart(int fd);
 
 extern
 void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only);

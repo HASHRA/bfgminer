@@ -316,8 +316,8 @@ const char *sha2_single_open[] =
 static
 const char *sha2_init[] =
 {
-	"55AAEF3020000000", // Enable SHA-2(?)
-	"55AA1F2817000000", // Enable Scrypt(?)
+	"55AAEF3020000000", // Enable SHA-2
+	"55AA1F2817000000", // Enable GCP
 	""
 };
 
@@ -333,8 +333,8 @@ const char *scrypt_only_init[] =
 static
 const char *scrypt_init[] =
 {
-	"55AA1F2814000000", // Close DualMode Scrypt(?)
-	"55AA1F2817000000", // Enable Scrypt(?)
+	"55AA1F2814000000", // Enable Scrypt
+	"55AA1F2817000000", // Enable GCP
 	""
 };
 
@@ -344,6 +344,20 @@ const char *scrypt_restart[] =
 	"55AA1F2810000000", // Close Scrypt(?)
 	"55AA1F2813000000", // Open Scrypt(?)
 	""
+};
+
+static
+const char *str_gcp_reset[] =
+{
+	"55AAC000808080800000000001000000", // GCP (GridChip) reset
+	NULL
+};
+
+static
+const char *str_btc_reset[] =
+{
+	"55AAC000E0E0E0E00000000001000000", // BTC reset
+	NULL
 };
 
 #endif

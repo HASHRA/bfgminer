@@ -154,26 +154,19 @@ void gc3355_set_pll_freq(const int fd, const int pll_freq)
 #define GC3355_INIT_DELAY			200000
 
 static
-const char *str_gcp_reset[] =
-{
-	"55AAC000808080800000000001000000", // GCP (GridChip) reset
-	NULL
-};
-
-static
 const char *str_init[] =
 {
 	"55AAC000C0C0C0C00500000001000000", // set number of sub-chips (05 in this case)
 	"55AAEF020000000000000000000000000000000000000000", // power down all SHA-2 modules
-	"55AAEF3020000000", // Enable SHA-2(?)
+	"55AAEF3020000000", // Enable SHA-2 OR NOT - NO SCRYPT ACCEPTS WITHOUT THIS???
 	NULL
 };
 
 static
 const char *str_scrypt_reset[] =
 {
-	"55AA1F2816000000",
-	"55AA1F2817000000", // Enable Scrypt(?)
+	"55AA1F2816000000", // Reset Scrypt(?)
+	"55AA1F2817000000", // Enable GCP(?)
 	NULL
 };
 
@@ -237,6 +230,7 @@ void gc3355_init_usborb(struct cgpu_info *device)
 	int fd = device->device_fd;
 
 	gc3355_send_cmds(fd, str_gcp_reset);
+	gc3355_send_cmds(fd, str_btc_reset);
 
 	usleep(GC3355_INIT_DELAY);
 
@@ -285,7 +279,7 @@ int opt_pll_freq = 0; // default is set in gc3355_set_pll_freq
 int opt_sha2_number = 160;
 bool opt_dual_mode = false;
 
-void gc3355_scrypt_init(int fd)
+void gc3355_scrypt_restart(int fd)
 {
 	gc3355_send_cmds(fd, scrypt_restart);
 }
@@ -343,6 +337,9 @@ void gc3355_dualmode_init(int fd)
 
 void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only)
 {
+	gc3355_send_cmds(fd, str_gcp_reset);
+	gc3355_send_cmds(fd, str_btc_reset);
+
 	if (sha2_unit != NULL)
 		gc3355_open_sha2_unit(fd, sha2_unit);
 	else

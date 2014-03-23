@@ -147,6 +147,47 @@ void gc3355_set_pll_freq(const int fd, const int pll_freq)
 		applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, actual_freq);
 }
 
+void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work)
+{
+	cmd[0] = 0x55;
+	cmd[1] = 0xaa;
+	cmd[2] = 0x1f;
+	cmd[3] = 0x00;
+
+	memcpy(cmd+4, work->target, 32);
+	memcpy(cmd+36, work->midstate, 32);
+	memcpy(cmd+68, work->data, 80);
+
+	// nonce_max
+	cmd[148] = 0xff;
+	cmd[149] = 0xff;
+	cmd[150] = 0xff;
+	cmd[151] = 0xff;
+
+	// taskid
+	cmd[152] = 0x12;
+	cmd[153] = 0x34;
+	cmd[154] = 0x56;
+	cmd[155] = 0x78;
+}
+
+void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work)
+{
+	cmd[0] = 0x55;
+	cmd[1] = 0xaa;
+	cmd[2] = 0x0f;
+	cmd[3] = 0x00;
+
+	uint8_t temp_bin[64];
+	memset(temp_bin, 0, 64);
+
+	memcpy(temp_bin, work->midstate, 32);
+	memcpy(temp_bin + 52, work->data + 64, 12);
+
+	memcpy(cmd + 8, work->midstate, 32);
+	memcpy(cmd + 40, temp_bin + 52, 12);
+}
+
 // 5-chip GridSeed support begins here
 
 static

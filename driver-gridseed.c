@@ -151,27 +151,7 @@ bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *wor
 	gc3355_scrypt_reset(device);
 
 	unsigned char cmd[156];
-
-	cmd[0] = 0x55;
-	cmd[1] = 0xaa;
-	cmd[2] = 0x1f;
-	cmd[3] = 0x00;
-
-	memcpy(cmd+4, work->target, 32);
-	memcpy(cmd+36, work->midstate, 32);
-	memcpy(cmd+68, work->data, 80);
-
-	// nonce_max
-	cmd[148] = 0xff;
-	cmd[149] = 0xff;
-	cmd[150] = 0xff;
-	cmd[151] = 0xff;
-
-	// taskid
-	cmd[152] = 0x12;
-	cmd[153] = 0x34;
-	cmd[154] = 0x56;
-	cmd[155] = 0x78;
+	gc3355_scrypt_prepare_work(cmd, work);
 
 	return (gc3355_write(device->device_fd, cmd, sizeof(cmd)) == sizeof(cmd));
 }

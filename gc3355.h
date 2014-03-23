@@ -32,6 +32,12 @@ uint32_t gc3355_get_firmware_version(int fd);
 extern
 void gc3355_set_pll_freq(int fd, int pll_freq);
 
+extern
+void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work);
+
+extern
+void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work);
+
 // 5-chip GridSeed support begins here
 
 #define GC3355_ORB_DEFAULT_CHIPS			5

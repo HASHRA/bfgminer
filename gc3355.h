@@ -75,7 +75,7 @@ void gc3355_scrypt_reset(struct cgpu_info *device);
 // 1-chip DualMiner support begins here
 
 extern
-char *opt_dualminer_sha2_gating;
+int opt_sha2_units;
 
 extern
 int opt_pll_freq;
@@ -102,7 +102,7 @@ extern
 void gc3355_scrypt_restart(int fd);
 
 extern
-void gc3355_init_usbstick(int fd, char *sha2_unit);
+void gc3355_init_usbstick(int fd, int sha2_units);
 
 extern
 void gc3355_open_scrypt_unit(int fd, int status);

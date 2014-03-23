@@ -87,7 +87,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
 	int fd = icarus->device_fd;
 
-	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating);
+	gc3355_init_usbstick(fd, opt_sha2_units);
 
 	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
 		(opt_scrypt))
@@ -110,7 +110,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 static
 bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __maybe_unused info)
 {
-	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating);
+	gc3355_init_usbstick(fd, opt_sha2_units);
 
 	return true;
 }

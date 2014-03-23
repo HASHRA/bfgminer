@@ -296,10 +296,10 @@ uint32_t gc3355_get_firmware_version(int fd)
 
 // 1-chip DualMiner support begins here
 
-#define DEFAULT_0_9V_sha2 "60"
-#define DEFAULT_1_2V_sha2 "0"
+#define DEFAULT_0_9V_SHA2 60
+#define DEFAULT_1_2V_SHA2 0
 
-char *opt_dualminer_sha2_gating = NULL;
+int opt_sha2_units = -1;
 int opt_pll_freq = 0; // default is set in gc3355_set_pll_freq
 bool opt_dual_mode = false;
 
@@ -308,13 +308,13 @@ void gc3355_scrypt_restart(int fd)
 	gc3355_send_cmds(fd, scrypt_restart_cmd);
 }
 
-void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
+void gc3355_open_sha2_unit(int fd, int sha2_units)
 {
 	int unit_count = 0;
 	unsigned char ob_bin[8];
 	int i;
 
-	unit_count = atoi(opt_sha2_gating);
+	unit_count = sha2_units;
 
 	if (unit_count < 0)
 		unit_count = 0;
@@ -352,7 +352,7 @@ void gc3355_scrypt_only_init(int fd)
 	gc3355_send_cmds(fd, scrypt_restart_cmd);
 }
 
-void gc3355_init_usbstick(int fd, char *sha2_unit)
+void gc3355_init_usbstick(int fd, int sha2_units)
 {
 	gc3355_set_dtr_status(fd, DTR_HIGH);
 	usleep(GC3355_COMMAND_DELAY);
@@ -380,13 +380,13 @@ void gc3355_init_usbstick(int fd, char *sha2_unit)
 		return;
 
 	// open sha2 units
-	if (sha2_unit == NULL)
+	if (sha2_units == -1)
 	{
 		if (gc3355_get_cts_status(fd) == 1)
-			sha2_unit = DEFAULT_1_2V_sha2; //dip-switch in L position
+			sha2_units = DEFAULT_1_2V_SHA2; //dip-switch in L position
 		else
-			sha2_unit = DEFAULT_0_9V_sha2; // dip-switch in B position
+			sha2_units = DEFAULT_0_9V_SHA2; // dip-switch in B position
 	}
 
-	gc3355_open_sha2_unit(fd, sha2_unit);
+	gc3355_open_sha2_unit(fd, sha2_units);
 }

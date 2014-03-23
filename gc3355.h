@@ -19,16 +19,22 @@
 
 // GridSeed common code begins here
 
+#define GC3355_ORB_SM_DEFAULT_FREQUENCY		600
+#define GC3355_STICK_DM_DEFAULT_FREQUENCY	550
+#define GC3355_STICK_SM_DEFAULT_FREQUENCY	850
+
 extern
 uint32_t gc3355_get_firmware_version(int fd);
 
+extern
+void gc3355_set_pll_freq(int fd, int pll_freq);
+
 // 5-chip GridSeed support begins here
 
-#define GC3355_DEFAULT_FREQUENCY	600
-#define GC3355_DEFAULT_CHIPS		5
+#define GC3355_ORB_DEFAULT_CHIPS			5
 
-#define GC3355_READ_SIZE			12
-#define GRIDSEED_HASH_SPEED			0.0851128926	// in ms
+#define GC3355_READ_SIZE					12
+#define GRIDSEED_HASH_SPEED					0.0851128926	// in ms
 
 // static information
 struct gc3355_info
@@ -61,9 +67,6 @@ void gc3355_init_usborb(struct cgpu_info *device);
 extern
 void gc3355_scrypt_reset(struct cgpu_info *device);
 
-extern
-void gc3355_set_core_freq(struct cgpu_info *device);
-
 
 // 1-chip DualMiner support begins here
 
@@ -88,19 +91,13 @@ extern
 bool opt_dual_mode;
 
 extern
-bool opt_hubfans;
+void gc3355_scrypt_only_init(int fd);
 
 extern
-void gc3355_dual_reset(int fd);
+void gc3355_dualmode_init(int fd);
 
 extern
-void gc3355_opt_scrypt_only_init(int fd);
-
-extern
-void gc3355_dualminer_init(int fd);
-
-extern
-void gc3355_opt_scrypt_init(int fd);
+void gc3355_scrypt_init(int fd);
 
 extern
 void gc3355_init_usbstick(int fd, char *sha2_unit, bool is_scrypt_only);

@@ -47,8 +47,8 @@ struct gc3355_info *gridseed_alloc_info()
 	if (unlikely(!info))
 		quit(1, "Failed to malloc gc3355_info");
 
-	info->freq = GC3355_DEFAULT_FREQUENCY;
-	info->chips = GC3355_DEFAULT_CHIPS;
+	info->freq = GC3355_ORB_SM_DEFAULT_FREQUENCY;
+	info->chips = GC3355_ORB_DEFAULT_CHIPS;
 
 	return info;
 }
@@ -216,9 +216,11 @@ char *gridseed_set_device(struct cgpu_info *device, char *option, char *setting,
 	{
 		int val = atoi(setting);
 
-		struct gc3355_info *info = device->device_data;
+		struct gc3355_info *info = (struct gc3355_info *)(device->device_data);
 		info->freq = val;
-		gc3355_set_core_freq(device);
+		int fd = device->device_fd;
+
+		gc3355_set_pll_freq(fd, val);
 
 		return NULL;
 	}

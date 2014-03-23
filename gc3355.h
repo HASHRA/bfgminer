@@ -17,6 +17,20 @@
 
 #include "miner.h"
 
+// Options configurable by the end-user
+
+extern
+int opt_sha2_units;
+
+extern
+int opt_pll_freq;
+
+//mining both Scrypt & SHA2 at the same time with two processes
+//SHA2 process must be run first, no arg requirements, first serial port will be used
+//Scrypt process must be launched after, --scrypt and --dual-mode args required
+extern
+bool opt_dual_mode;
+
 // GridSeed common code begins here
 
 #define GC3355_ORB_SM_DEFAULT_FREQUENCY		600
@@ -25,33 +39,19 @@
 
 #define GC3355_COMMAND_DELAY				20000
 
-extern
-uint32_t gc3355_get_firmware_version(int fd);
-
-extern
-void gc3355_set_pll_freq(int fd, int pll_freq);
-
-extern
-void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work);
-
-extern
-void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work);
-
-// 5-chip GridSeed support begins here
-
 #define GC3355_ORB_DEFAULT_CHIPS			5
 
 #define GC3355_READ_SIZE					12
-#define GRIDSEED_HASH_SPEED					0.0851128926	// in ms
+#define GC3355_ORB_HASH_SPEED				0.0851128926	// in ms
 
 // static information
-struct gc3355_info
+struct gc3355_orb_info
 {
 	uint16_t freq;
 };
 
 // dynamic information
-struct gc3355_state
+struct gc3355_orb_state
 {
 	struct timeval scanhash_time;
 };
@@ -69,22 +69,7 @@ extern
 void gc3355_init_usborb(struct cgpu_info *device);
 
 extern
-void gc3355_scrypt_reset(struct cgpu_info *device);
-
-
-// 1-chip DualMiner support begins here
-
-extern
-int opt_sha2_units;
-
-extern
-int opt_pll_freq;
-
-//mining both Scrypt & SHA2 at the same time with two processes
-//SHA2 process must be run first, no arg requirements, first serial port will be used
-//Scrypt process must be launched after, --scrypt and --dual-mode args required
-extern
-bool opt_dual_mode;
+void gc3355_init_usbstick(int fd, int sha2_units);
 
 extern
 void gc3355_sha2_init(int fd);
@@ -96,16 +81,25 @@ extern
 void gc3355_scrypt_only_init(int fd);
 
 extern
-void gc3355_dualmode_init(int fd);
-
-extern
 void gc3355_scrypt_restart(int fd);
 
 extern
-void gc3355_init_usbstick(int fd, int sha2_units);
+void gc3355_scrypt_reset(struct cgpu_info *device);
 
 extern
 void gc3355_open_scrypt_unit(int fd, int status);
+
+extern
+void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work);
+
+extern
+void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work);
+
+extern
+uint32_t gc3355_get_firmware_version(int fd);
+
+extern
+void gc3355_set_pll_freq(int fd, int pll_freq);
 
 #define gc3355_get_cts_status(fd)  (get_serial_cts(fd) ? 0 : 1)
 #define gc3355_set_rts_status(fd, val)  set_serial_rts(fd, val)

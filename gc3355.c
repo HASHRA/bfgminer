@@ -264,7 +264,7 @@ void gc3355_init_usborb(struct cgpu_info *device)
 	gc3355_send_cmds(fd, str_init);
 	gc3355_send_cmds(fd, str_scrypt_reset);
 
-	struct gc3355_info *info = (struct gc3355_info *)(device->device_data);
+	struct gc3355_orb_info *info = (struct gc3355_orb_info *)(device->device_data);
 	gc3355_set_pll_freq(fd, info->freq);
 }
 

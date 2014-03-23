@@ -25,7 +25,7 @@ BFG_REGISTER_DRIVER(gridseed_drv)
  */
 
 static
-struct cgpu_info *gridseed_alloc_device(const char *path, struct device_drv *driver, struct gc3355_info *info)
+struct cgpu_info *gridseed_alloc_device(const char *path, struct device_drv *driver, struct gc3355_orb_info *info)
 {
 	struct cgpu_info *device = calloc(1, sizeof(struct cgpu_info));
 	if (unlikely(!device))
@@ -41,11 +41,11 @@ struct cgpu_info *gridseed_alloc_device(const char *path, struct device_drv *dri
 }
 
 static
-struct gc3355_info *gridseed_alloc_info()
+struct gc3355_orb_info *gridseed_alloc_info()
 {
-	struct gc3355_info *info = calloc(1, sizeof(struct gc3355_info));
+	struct gc3355_orb_info *info = calloc(1, sizeof(struct gc3355_orb_info));
 	if (unlikely(!info))
-		quit(1, "Failed to malloc gc3355_info");
+		quit(1, "Failed to malloc gc3355_orb_info");
 
 	info->freq = GC3355_ORB_SM_DEFAULT_FREQUENCY;
 
@@ -57,7 +57,7 @@ struct gc3355_info *gridseed_alloc_info()
  */
 
 static
-bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct gc3355_info *info)
+bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct gc3355_orb_info *info)
 {
 	int fd = gc3355_open(path);
 	if(fd < 0)
@@ -93,7 +93,7 @@ bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct 
 static
 bool gridseed_detect_one(const char *path)
 {
-	struct gc3355_info *info = gridseed_alloc_info();
+	struct gc3355_orb_info *info = gridseed_alloc_info();
 
 	if (!gridseed_detect_custom(path, &gridseed_drv, info))
 	{
@@ -142,8 +142,8 @@ static
 bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *work)
 {
 	struct cgpu_info *device = thr->cgpu;
-	struct gc3355_info *info = device->device_data;
-	struct gc3355_state * const state = thr->cgpu_data;
+	struct gc3355_orb_info *info = device->device_data;
+	struct gc3355_orb_state * const state = thr->cgpu_data;
 	unsigned char cmd[156];
 
 	cgtime(&state->scanhash_time);
@@ -160,20 +160,20 @@ static
 int64_t gridseed_calc_hashes(struct thr_info *thr)
 {
 	struct cgpu_info *device = thr->cgpu;
-	struct gc3355_state * const state = thr->cgpu_data;
+	struct gc3355_orb_state * const state = thr->cgpu_data;
 	struct timeval old_scanhash_time = state->scanhash_time;
 	cgtime(&state->scanhash_time);
 	int elapsed_ms = ms_tdiff(&state->scanhash_time, &old_scanhash_time);
 
-	struct gc3355_info *info = device->device_data;
-	return GRIDSEED_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * GC3355_ORB_DEFAULT_CHIPS);
+	struct gc3355_orb_info *info = device->device_data;
+	return GC3355_ORB_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * GC3355_ORB_DEFAULT_CHIPS);
 }
 
 static
 int64_t gridseed_scanhash(struct thr_info *thr, struct work *work, int64_t __maybe_unused max_nonce)
 {
 	struct cgpu_info *device = thr->cgpu;
-	struct gc3355_info *info = device->device_data;
+	struct gc3355_orb_info *info = device->device_data;
 
 	unsigned char buf[GC3355_READ_SIZE];
 	int read = 0;
@@ -208,7 +208,7 @@ char *gridseed_set_device(struct cgpu_info *device, char *option, char *setting,
 	{
 		int val = atoi(setting);
 
-		struct gc3355_info *info = (struct gc3355_info *)(device->device_data);
+		struct gc3355_orb_info *info = (struct gc3355_orb_info *)(device->device_data);
 		info->freq = val;
 		int fd = device->device_fd;
 

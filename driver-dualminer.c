@@ -124,6 +124,7 @@ bool dualminer_job_start(struct thr_info * const thr)
 	int fd = icarus->device_fd;
 
 	if (state->firstrun)
+		// runs when job starts and the device has been reset (or first run)
 		dualminer_init_firstrun(icarus);
 
 	if (opt_scrypt)
@@ -245,13 +246,9 @@ bool dualminer_job_prepare(struct thr_info *thr, struct work *work, __maybe_unus
 	memset(state->ob_bin, 0, info->ob_size);
 
 	if (opt_scrypt)
-	{
 		gc3355_scrypt_prepare_work(state->ob_bin, work);
-	}
 	else
-	{
 		gc3355_sha2_prepare_work(state->ob_bin, work);
-	}
 
 	return true;
 }

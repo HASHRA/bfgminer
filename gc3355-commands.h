@@ -314,14 +314,21 @@ const char *sha2_open_cmd[] =
 };
 
 static
+const char *multichip_init_cmd[] =
+{
+	"55AAC000C0C0C0C00500000001000000", // set number of sub-chips (05 in this case)
+	"55AAEF020000000000000000000000000000000000000000", // power down all SHA-2 modules
+	"55AAEF3020000000", // Enable SHA-2 OR NOT - NO SCRYPT ACCEPTS WITHOUT THIS???
+	NULL
+};
+
+static
 const char *sha2_init_cmd[] =
 {
 	"55AAEF3020000000", // Enable SHA-2
 	"55AA1F2817000000", // Enable GCP
 	NULL
 };
-
-// Scrypt commands
 
 static
 const char *scrypt_only_init_cmd[] =

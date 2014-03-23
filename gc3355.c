@@ -38,15 +38,6 @@ bool opt_dual_mode = false;
 #define DEFAULT_1_2V_SHA2		0
 
 static
-const char *str_init[] =
-{
-	"55AAC000C0C0C0C00500000001000000", // set number of sub-chips (05 in this case)
-	"55AAEF020000000000000000000000000000000000000000", // power down all SHA-2 modules
-	"55AAEF3020000000", // Enable SHA-2 OR NOT - NO SCRYPT ACCEPTS WITHOUT THIS???
-	NULL
-};
-
-static
 void gc3355_log_protocol(int fd, const char *buf, size_t size, const char *prefix)
 {
 	char hex[(size * 2) + 1];
@@ -140,62 +131,84 @@ void gc3355_sha2_init(int fd)
 	gc3355_send_cmds(fd, sha2_init_cmd);
 }
 
-void gc3355_init_usborb(int fd, int pll_freq, bool detect_only)
-{
-	gc3355_send_cmds(fd, str_gcp_reset_cmd);
-	gc3355_send_cmds(fd, str_btc_reset_cmd);
-
-	usleep(GC3355_COMMAND_DELAY);
-
-	gc3355_send_cmds(fd, str_init);
-	gc3355_send_cmds(fd, scrypt_reset_cmd);
-
-	gc3355_set_pll_freq(fd, pll_freq);
-}
-
-void gc3355_init_usbstick(int fd, int pll_freq, bool detect_only)
+void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
 {
 	// reset chips
 	gc3355_send_cmds(fd, str_gcp_reset_cmd);
 	gc3355_send_cmds(fd, str_btc_reset_cmd);
 
-	gc3355_set_dtr_status(fd, DTR_HIGH);
-	usleep(GC3355_COMMAND_DELAY);
-	gc3355_set_dtr_status(fd, DTR_LOW);
-
-	if (opt_scrypt && !opt_dual_mode)
+	if (usbstick)
 	{
-		gc3355_scrypt_only_init(fd);
+		// set data terminal ready (DTR) status
+		gc3355_set_dtr_status(fd, DTR_HIGH);
+		usleep(GC3355_COMMAND_DELAY);
+		gc3355_set_dtr_status(fd, DTR_LOW);
+	}
+
+	if (usbstick)
+	{
+		// initialize units
+		if (opt_scrypt && !opt_dual_mode)
+		{
+			gc3355_scrypt_only_init(fd);
+		}
+		else
+		{
+			gc3355_sha2_init(fd);
+			gc3355_scrypt_init(fd);
+		}
 	}
 	else
 	{
-		gc3355_sha2_init(fd);
-		gc3355_scrypt_init(fd);
+		// zzz
+		usleep(GC3355_COMMAND_DELAY);
+
+		// initialize units
+		gc3355_send_cmds(fd, multichip_init_cmd);
+		gc3355_scrypt_reset(fd);
 	}
-	
+
 	gc3355_set_pll_freq(fd, pll_freq);
 
+	// zzz
 	usleep(GC3355_COMMAND_DELAY);
 
-	if (!detect_only) {
-
-		if (!opt_scrypt)
+	if (usbstick)
+	{
+		if (!detect_only)
 		{
-			// open sha2 units
-			if (opt_sha2_units == -1)
+			if (!opt_scrypt)
 			{
-				if (gc3355_get_cts_status(fd) == 1)
-					opt_sha2_units = DEFAULT_1_2V_SHA2; //dip-switch in L position
-				else
-					opt_sha2_units = DEFAULT_0_9V_SHA2; // dip-switch in B position
+				// open sha2 units
+				if (opt_sha2_units == -1)
+				{
+					// get clear to send (CTS) status
+					if (gc3355_get_cts_status(fd) == 1)
+						opt_sha2_units = DEFAULT_1_2V_SHA2; //dip-switch in L position
+					else
+						opt_sha2_units = DEFAULT_0_9V_SHA2; // dip-switch in B position
+				}
+
+				gc3355_open_sha2_unit(fd, opt_sha2_units);
 			}
 
-			gc3355_open_sha2_unit(fd, opt_sha2_units);
+			if (usbstick)
+			{
+				// set request to send (RTS) status
+				gc3355_set_rts_status(fd, RTS_HIGH);
+			}
 		}
-		gc3355_set_rts_status(fd, RTS_HIGH);
-
 	}
+}
 
+void gc3355_init_usborb(int fd, int pll_freq, bool detect_only)
+{
+	gc3355_init_device(fd, pll_freq, detect_only, false);
+}
+
+void gc3355_init_usbstick(int fd, int pll_freq, bool detect_only)
+{
+	gc3355_init_device(fd, pll_freq, detect_only, true);
 }
 
 void gc3355_scrypt_init(int fd)

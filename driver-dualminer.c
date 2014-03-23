@@ -75,30 +75,9 @@ const struct bfg_set_device_definition dualminer_set_device_funcs[];
 // device helper functions
 
 static
-void dualminer_bootstrap_device(int fd)
-{
-	gc3355_set_dtr_status(fd, DTR_HIGH);
-	usleep(GC3355_COMMAND_DELAY);
-	gc3355_set_dtr_status(fd, DTR_LOW);
-
-	if (opt_scrypt && !opt_dual_mode)
-	{
-		gc3355_scrypt_only_init(fd);
-	}
-	else
-	{
-		gc3355_sha2_init(fd);
-		gc3355_scrypt_init(fd);
-	}
-	gc3355_set_pll_freq(fd, opt_pll_freq);
-
-	usleep(GC3355_COMMAND_DELAY);
-}
-
-static
 void dualminer_teardown_device(int fd)
 {
-	gc3355_set_dtr_status(fd, DTR_LOW);
+	gc3355_set_dtr_status(fd, DTR_HIGH);
 	gc3355_set_rts_status(fd, RTS_LOW);
 }
 
@@ -108,11 +87,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
 	int fd = icarus->device_fd;
 
-
-	dualminer_bootstrap_device(fd);
-	gc3355_set_rts_status(fd, RTS_HIGH);
 	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating);
-
 
 	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
 		(opt_scrypt))
@@ -122,10 +97,9 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 		info->Hs = DUALMINER_SCRYPT_DM_HASH_TIME;
 	}
 
-	applog(LOG_DEBUG, "%"PRIpreprv": dualminer: Init: pll=%d, sha2num=%d, scrypt: %d, scrypt only: %d",
+	applog(LOG_DEBUG, "%"PRIpreprv": dualminer: Init: pll=%d, scrypt: %d, scrypt only: %d",
 		   icarus->proc_repr,
 		   opt_pll_freq,
-		   opt_sha2_number,
 		   opt_scrypt,
 		   opt_scrypt && !opt_dual_mode);
 }
@@ -136,7 +110,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 static
 bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __maybe_unused info)
 {
-	dualminer_bootstrap_device(fd);
+	gc3355_init_usbstick(fd, opt_dualminer_sha2_gating);
 
 	return true;
 }

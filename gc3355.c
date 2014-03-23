@@ -301,7 +301,6 @@ uint32_t gc3355_get_firmware_version(int fd)
 
 char *opt_dualminer_sha2_gating = NULL;
 int opt_pll_freq = 0; // default is set in gc3355_set_pll_freq
-int opt_sha2_number = 160;
 bool opt_dual_mode = false;
 
 void gc3355_scrypt_restart(int fd)
@@ -330,7 +329,6 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 			gc3355_write(fd, ob_bin, 8);
 			usleep(GC3355_COMMAND_DELAY);
 		}
-		opt_sha2_number = unit_count;
 	}
 	else if (unit_count == 0)
 		gc3355_send_cmds(fd, sha2_gating_cmd);
@@ -356,6 +354,24 @@ void gc3355_scrypt_only_init(int fd)
 
 void gc3355_init_usbstick(int fd, char *sha2_unit)
 {
+	gc3355_set_dtr_status(fd, DTR_HIGH);
+	usleep(GC3355_COMMAND_DELAY);
+	gc3355_set_dtr_status(fd, DTR_LOW);
+
+	if (opt_scrypt && !opt_dual_mode)
+	{
+		gc3355_scrypt_only_init(fd);
+	}
+	else
+	{
+		gc3355_sha2_init(fd);
+		gc3355_scrypt_init(fd);
+	}
+	gc3355_set_pll_freq(fd, opt_pll_freq);
+
+	usleep(GC3355_COMMAND_DELAY);
+
+	gc3355_set_rts_status(fd, RTS_HIGH);
 	// reset chips
 	gc3355_send_cmds(fd, str_gcp_reset_cmd);
 	gc3355_send_cmds(fd, str_btc_reset_cmd);

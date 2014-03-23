@@ -144,12 +144,11 @@ bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *wor
 	struct cgpu_info *device = thr->cgpu;
 	struct gc3355_info *info = device->device_data;
 	struct gc3355_state * const state = thr->cgpu_data;
+	unsigned char cmd[156];
 
 	cgtime(&state->scanhash_time);
 
 	gc3355_scrypt_reset(device);
-
-	unsigned char cmd[156];
 	gc3355_scrypt_prepare_work(cmd, work);
 
 	return (gc3355_write(device->device_fd, cmd, sizeof(cmd)) == sizeof(cmd));

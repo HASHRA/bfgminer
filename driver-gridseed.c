@@ -152,12 +152,26 @@ bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *wor
 
 	unsigned char cmd[156];
 
-	memcpy(cmd, "\x55\xaa\x1f\x00", 4);
+	cmd[0] = 0x55;
+	cmd[1] = 0xaa;
+	cmd[2] = 0x1f;
+	cmd[3] = 0x00;
+
 	memcpy(cmd+4, work->target, 32);
 	memcpy(cmd+36, work->midstate, 32);
 	memcpy(cmd+68, work->data, 80);
-	memcpy(cmd+148, "\xff\xff\xff\xff", 4);  // nonce_max
-	memcpy(cmd+152, "\x12\x34\x56\x78", 4);  // taskid
+
+	// nonce_max
+	cmd[148] = 0xff;
+	cmd[149] = 0xff;
+	cmd[150] = 0xff;
+	cmd[151] = 0xff;
+
+	// taskid
+	cmd[152] = 0x12;
+	cmd[153] = 0x34;
+	cmd[154] = 0x56;
+	cmd[155] = 0x78;
 
 	return (gc3355_write(device->device_fd, cmd, sizeof(cmd)) == sizeof(cmd));
 }

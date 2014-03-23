@@ -23,6 +23,9 @@
 #define GC3355_STICK_DM_DEFAULT_FREQUENCY	550
 #define GC3355_STICK_SM_DEFAULT_FREQUENCY	850
 
+
+#define GC3355_COMMAND_DELAY				20000
+
 extern
 uint32_t gc3355_get_firmware_version(int fd);
 

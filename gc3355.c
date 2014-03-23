@@ -26,8 +26,6 @@
 
 // GridSeed common code begins here
 
-#define GC3355_COMMAND_DELAY		20000
-
 #define GC3355_CHIP_NAME			"gc3355"
 
 static

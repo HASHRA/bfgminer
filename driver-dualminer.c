@@ -78,7 +78,7 @@ static
 void dualminer_bootstrap_device(int fd)
 {
 	gc3355_set_dtr_status(fd, DTR_HIGH);
-	cgsleep_ms(1000);
+	usleep(GC3355_COMMAND_DELAY);
 	gc3355_set_dtr_status(fd, DTR_LOW);
 
 	if (opt_scrypt && !opt_dual_mode)
@@ -92,7 +92,7 @@ void dualminer_bootstrap_device(int fd)
 	}
 	gc3355_set_pll_freq(fd, opt_pll_freq);
 
-	usleep(1000);
+	usleep(GC3355_COMMAND_DELAY);
 }
 
 static
@@ -276,9 +276,12 @@ bool dualminer_job_prepare(struct thr_info *thr, struct work *work, __maybe_unus
 		state->ob_bin[1] = 0xaa;
 		state->ob_bin[2] = 0x1f;
 		state->ob_bin[3] = 0x00;
+
 		memcpy(state->ob_bin + 4, work->target, 32);
 		memcpy(state->ob_bin + 36, work->midstate, 32);
 		memcpy(state->ob_bin + 68, work->data, 80);
+
+		// nonce_max
 		state->ob_bin[148] = 0xff;
 		state->ob_bin[149] = 0xff;
 		state->ob_bin[150] = 0xff;

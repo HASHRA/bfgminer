@@ -151,8 +151,6 @@ void gc3355_set_pll_freq(const int fd, const int pll_freq)
 
 // 5-chip GridSeed support begins here
 
-#define GC3355_INIT_DELAY			200000
-
 static
 const char *str_init[] =
 {
@@ -219,10 +217,10 @@ void gc3355_init_usborb(struct cgpu_info *device)
 {
 	int fd = device->device_fd;
 
-	gc3355_send_cmds(fd, str_gcp_reset);
-	gc3355_send_cmds(fd, str_btc_reset);
+	gc3355_send_cmds(fd, str_gcp_reset_cmd);
+	gc3355_send_cmds(fd, str_btc_reset_cmd);
 
-	usleep(GC3355_INIT_DELAY);
+	usleep(GC3355_COMMAND_DELAY);
 
 	gc3355_send_cmds(fd, str_init);
 	gc3355_send_cmds(fd, str_scrypt_reset);
@@ -236,7 +234,7 @@ uint32_t gc3355_get_firmware_version(int fd)
 	unsigned char detect_data[16];
 	int size = sizeof(detect_data);
 
-	gc3355_send_cmds(fd, firmware_request);
+	gc3355_send_cmds(fd, firmware_request_cmd);
 
 	char buf[GC3355_READ_SIZE];
 	int read = gc3355_read(fd, buf, GC3355_READ_SIZE);
@@ -259,8 +257,6 @@ uint32_t gc3355_get_firmware_version(int fd)
 
 // 1-chip DualMiner support begins here
 
-#define DEFAULT_DELAY_TIME 2000
-
 #define DEFAULT_0_9V_sha2 "60"
 #define DEFAULT_1_2V_sha2 "0"
 
@@ -271,7 +267,7 @@ bool opt_dual_mode = false;
 
 void gc3355_scrypt_restart(int fd)
 {
-	gc3355_send_cmds(fd, scrypt_restart);
+	gc3355_send_cmds(fd, scrypt_restart_cmd);
 }
 
 void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
@@ -291,41 +287,39 @@ void gc3355_open_sha2_unit(int fd, char *opt_sha2_gating)
 	{
 		for(i = 0; i <= unit_count; i++)
 		{
-			hex2bin(ob_bin, sha2_single_open[i], sizeof(ob_bin));
+			hex2bin(ob_bin, sha2_open_cmd[i], sizeof(ob_bin));
 			gc3355_write(fd, ob_bin, 8);
-			usleep(DEFAULT_DELAY_TIME * 2);
+			usleep(GC3355_COMMAND_DELAY);
 		}
 		opt_sha2_number = unit_count;
 	}
 	else if (unit_count == 0)
-		gc3355_send_cmds(fd, sha2_gating_tmpl);
+		gc3355_send_cmds(fd, sha2_gating_cmd);
 }
 
 void gc3355_sha2_init(int fd)
 {
-	gc3355_send_cmds(fd, sha2_gating_tmpl);
-	gc3355_send_cmds(fd, sha2_init);
+	gc3355_send_cmds(fd, sha2_gating_cmd);
+	gc3355_send_cmds(fd, sha2_init_cmd);
 }
 
 void gc3355_scrypt_init(int fd)
 {
-	gc3355_send_cmds(fd, scrypt_init);
+	gc3355_send_cmds(fd, scrypt_init_cmd);
 }
 
 void gc3355_scrypt_only_init(int fd)
 {
-	gc3355_send_cmds(fd, sha2_gating_tmpl);
-	gc3355_send_cmds(fd, scrypt_only_init);
-	gc3355_send_cmds(fd, scrypt_restart);
-
-	gc3355_set_pll_freq(fd, opt_pll_freq);
+	gc3355_send_cmds(fd, sha2_gating_cmd);
+	gc3355_send_cmds(fd, scrypt_only_init_cmd);
+	gc3355_send_cmds(fd, scrypt_restart_cmd);
 }
 
 void gc3355_init_usbstick(int fd, char *sha2_unit)
 {
 	// reset chips
-	gc3355_send_cmds(fd, str_gcp_reset);
-	gc3355_send_cmds(fd, str_btc_reset);
+	gc3355_send_cmds(fd, str_gcp_reset_cmd);
+	gc3355_send_cmds(fd, str_btc_reset_cmd);
 
 	if (opt_scrypt)
 		return;

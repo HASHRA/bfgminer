@@ -82,13 +82,15 @@ void dualminer_bootstrap_device(int fd)
 	gc3355_set_dtr_status(fd, DTR_LOW);
 
 	if (opt_scrypt && !opt_dual_mode)
+	{
 		gc3355_scrypt_only_init(fd);
+	}
 	else
 	{
 		gc3355_sha2_init(fd);
 		gc3355_scrypt_init(fd);
-		gc3355_set_pll_freq(fd, opt_pll_freq);
 	}
+	gc3355_set_pll_freq(fd, opt_pll_freq);
 
 	usleep(1000);
 }

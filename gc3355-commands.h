@@ -15,9 +15,9 @@
 // General GC3355 commands
 
 static
-const char *firmware_request[] =
+const char *firmware_request_cmd[] =
 {
-	"55aac000909090900000000001000000", // get firmware version of GC3355
+	"55AAC000909090900000000001000000", // get firmware version of GC3355
 	"",
 };
 
@@ -136,7 +136,7 @@ const char *pll_freq_400M_cmd[] =
 // SHA-2 commands
 
 static
-const char *sha2_gating_tmpl[] =
+const char *sha2_gating_cmd[] =
 {
 	"55AAEF0200000000", // Chip 1 - power down SHA-2 (unless masked w/PLL)
 	"55AAEF0300000000", // Chip 2
@@ -148,7 +148,7 @@ const char *sha2_gating_tmpl[] =
 
 // maps the above SHA chip gating with SHA-2 units
 static
-const char *sha2_single_open[] =
+const char *sha2_open_cmd[] =
 {
 	"55AAEF0200000001",
 	"55AAEF0200000003",
@@ -314,7 +314,7 @@ const char *sha2_single_open[] =
 };
 
 static
-const char *sha2_init[] =
+const char *sha2_init_cmd[] =
 {
 	"55AAEF3020000000", // Enable SHA-2
 	"55AA1F2817000000", // Enable GCP
@@ -324,14 +324,14 @@ const char *sha2_init[] =
 // Scrypt commands
 
 static
-const char *scrypt_only_init[] =
+const char *scrypt_only_init_cmd[] =
 {
 	"55AAEF3040000000",
 	"",
 };
 
 static
-const char *scrypt_init[] =
+const char *scrypt_init_cmd[] =
 {
 	"55AA1F2814000000", // Enable Scrypt
 	"55AA1F2817000000", // Enable GCP
@@ -339,7 +339,7 @@ const char *scrypt_init[] =
 };
 
 static
-const char *scrypt_restart[] =
+const char *scrypt_restart_cmd[] =
 {
 	"55AA1F2810000000", // Close Scrypt(?)
 	"55AA1F2813000000", // Open Scrypt(?)
@@ -347,14 +347,14 @@ const char *scrypt_restart[] =
 };
 
 static
-const char *str_gcp_reset[] =
+const char *str_gcp_reset_cmd[] =
 {
 	"55AAC000808080800000000001000000", // GCP (GridChip) reset
 	NULL
 };
 
 static
-const char *str_btc_reset[] =
+const char *str_btc_reset_cmd[] =
 {
 	"55AAC000E0E0E0E00000000001000000", // BTC reset
 	NULL

@@ -118,8 +118,11 @@ bool gridseed_thread_prepare(struct thr_info *thr)
 {
 	thr->cgpu_data = calloc(1, sizeof(*thr->cgpu_data));
 
-	struct cgpu_info *device = thr->cgpu;
-	device->min_nonce_diff = 1./0x10000;
+	if (opt_scrypt)
+	{
+		struct cgpu_info *device = thr->cgpu;
+		device->min_nonce_diff = 1./0x10000;
+	}
 
 	return true;
 }
@@ -144,12 +147,21 @@ bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *wor
 	struct cgpu_info *device = thr->cgpu;
 	struct gc3355_orb_info *info = device->device_data;
 	struct gc3355_orb_state * const state = thr->cgpu_data;
-	unsigned char cmd[156];
+
+	int work_size = opt_scrypt ? 156 : 52;
+	unsigned char cmd[work_size];
 
 	cgtime(&state->scanhash_time);
 
-	gc3355_scrypt_reset(device->device_fd);
-	gc3355_scrypt_prepare_work(cmd, work);
+	if (opt_scrypt)
+	{
+		gc3355_scrypt_reset(device->device_fd);
+		gc3355_scrypt_prepare_work(cmd, work);
+	}
+	else
+	{
+		gc3355_sha2_prepare_work(cmd, work, true);
+	}
 
 	return (gc3355_write(device->device_fd, cmd, sizeof(cmd)) == sizeof(cmd));
 }
@@ -181,11 +193,22 @@ int64_t gridseed_scanhash(struct thr_info *thr, struct work *work, int64_t __may
 
 	while (!thr->work_restart && (read = gc3355_read(fd, (char *)buf, GC3355_READ_SIZE)) > 0)
 	{
-		if (buf[0] == 0x55 || buf[1] == 0x20)
+		if (buf[0] == 0x55)
 		{
-			uint32_t nonce = *(uint32_t *)(buf+4);
-			nonce = le32toh(nonce);
-			submit_nonce(thr, work, nonce);
+			switch(buf[1]) {
+				case 0xaa:
+					// Queue length result
+					// could watch for watchdog reset here
+					break;
+				case 0x10: // BTC result
+				case 0x20: // LTC result
+				{
+					uint32_t nonce = *(uint32_t *)(buf+4);
+					nonce = le32toh(nonce);
+					submit_nonce(thr, work, nonce);
+					break;
+				}
+			}
 		} else
 		{
 			applog(LOG_ERR, "%"PRIpreprv": Unrecognized response", device->proc_repr);

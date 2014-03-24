@@ -30,12 +30,14 @@ int opt_sha2_units = -1;
 int opt_pll_freq = 0; // default is set in gc3355_set_pll_freq
 bool opt_dual_mode = false;
 
-#define GC3355_CHIP_NAME		"gc3355"
+#define GC3355_CHIP_NAME			"gc3355"
 
 // thumb stick voltages mapped to sha2_units
 
-#define DEFAULT_0_9V_SHA2		60
-#define DEFAULT_1_2V_SHA2		0
+#define DEFAULT_0_9V_SHA2_UNITS		60
+#define DEFAULT_1_2V_SHA2_UNITS		0
+
+#define DEFAULT_ORB_SHA2_CORES		16
 
 static
 void gc3355_log_protocol(int fd, const char *buf, size_t size, const char *prefix)
@@ -77,29 +79,44 @@ ssize_t gc3355_write(int fd, const void * const buf, const size_t size)
 }
 
 static
-void gc3355_send_cmds(int fd, const char *cmds[])
+void _gc3355_send_cmds_bin(int fd, const char *cmds[], bool is_bin, int size)
 {
 	int i = 0;
 	unsigned char ob_bin[512];
-	for(i = 0 ;; i++)
+	for (i = 0; ; i++)
 	{
-		memset(ob_bin, 0, sizeof(ob_bin));
-
 		const char *cmd = cmds[i];
-
 		if (cmd == NULL)
 			break;
 
-		int size = strlen(cmd) / 2;
-		hex2bin(ob_bin, cmd, size);
-		gc3355_write(fd, ob_bin, size);
+		if (is_bin)
+		{
+			gc3355_write(fd, cmd, size);
+		}
+		else
+		{
+			int bin_size = strlen(cmd) / 2;
+			hex2bin(ob_bin, cmd, bin_size);
+			gc3355_write(fd, ob_bin, bin_size);
+		}
 
 		usleep(GC3355_COMMAND_DELAY);
 	}
 }
 
+void gc3355_send_cmds_bin(int fd, const char *cmds[], int size)
+{
+	_gc3355_send_cmds_bin(fd, cmds, true, size);
+}
+
 static
-void gc3355_open_sha2_unit(int fd, int sha2_units)
+void gc3355_send_cmds(int fd, const char *cmds[])
+{
+	_gc3355_send_cmds_bin(fd, cmds, false, -1);
+}
+
+static
+void gc3355_open_sha2_units(int fd, int sha2_units)
 {
 	int unit_count = 0;
 	unsigned char ob_bin[8];
@@ -125,11 +142,81 @@ void gc3355_open_sha2_unit(int fd, int sha2_units)
 		gc3355_send_cmds(fd, sha2_gating_cmd);
 }
 
+static
+void gc3355_open_sha2_cores(int fd, int sha2_cores)
+{
+	unsigned char cmd[24], c1, c2;
+	uint16_t	mask;
+	int i;
+
+	mask = 0x00;
+	for (i = 0; i < sha2_cores; i++)
+		mask = mask << 1 | 0x01;
+
+	if (mask == 0)
+		return;
+
+	c1 = mask & 0x00ff;
+	c2 = mask >> 8;
+
+	memset(cmd, 0, sizeof(cmd));
+	memcpy(cmd, "\x55\xAA\xEF\x02", 4);
+	for (i = 4; i < 24; i++) {
+		cmd[i] = ((i%2)==0) ? c1 : c2;
+		gc3355_write(fd, cmd, sizeof(cmd));
+		usleep(GC3355_COMMAND_DELAY);
+	}
+	return;
+}
+
+static
+void gc3355_init_sha2_nonce(int fd)
+{
+	char **cmds, *p;
+	uint32_t nonce, step;
+	int i;
+
+	cmds = calloc(sizeof(char *) *(GC3355_ORB_DEFAULT_CHIPS + 1), 1);
+
+	if (unlikely(!cmds))
+		quit(1, "Failed to calloc init nonce commands data array");
+
+	step = 0xffffffff / GC3355_ORB_DEFAULT_CHIPS;
+
+	for (i = 0; i < GC3355_ORB_DEFAULT_CHIPS; i++)
+	{
+		p = calloc(8, 1);
+
+		if (unlikely(!p))
+			quit(1, "Failed to calloc init nonce commands data");
+
+		memcpy(p, "\x55\xaa\x00\x00", 4);
+
+		p[2] = i;
+		nonce = htole32(step * i);
+		memcpy(p + 4, &nonce, sizeof(nonce));
+		cmds[i] = p;
+	}
+
+	cmds[i] = NULL;
+	gc3355_send_cmds_bin(fd, (const char **)cmds, 8);
+
+	for (i = 0; i < GC3355_ORB_DEFAULT_CHIPS; i++)
+		free(cmds[i]);
+
+	free(cmds);
+	return;
+}
+
+static
 void gc3355_sha2_init(int fd)
 {
 	gc3355_send_cmds(fd, sha2_gating_cmd);
 	gc3355_send_cmds(fd, sha2_init_cmd);
 }
+
+static
+void gc3355_scrypt_only_init(int fd);
 
 void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
 {
@@ -157,6 +244,9 @@ void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
 			gc3355_sha2_init(fd);
 			gc3355_scrypt_init(fd);
 		}
+
+		//set freq
+		gc3355_set_pll_freq(fd, pll_freq);
 	}
 	else
 	{
@@ -166,37 +256,50 @@ void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
 		// initialize units
 		gc3355_send_cmds(fd, multichip_init_cmd);
 		gc3355_scrypt_reset(fd);
-	}
 
-	gc3355_set_pll_freq(fd, pll_freq);
+		//set freq
+		gc3355_set_pll_freq(fd, pll_freq);
+
+		//init sha2 nonce
+		gc3355_init_sha2_nonce(fd);
+	}
 
 	// zzz
 	usleep(GC3355_COMMAND_DELAY);
 
-	if (usbstick)
+	if (!detect_only)
 	{
-		if (!detect_only)
+		if (!opt_scrypt)
 		{
-			if (!opt_scrypt)
+			if (usbstick)
 			{
 				// open sha2 units
 				if (opt_sha2_units == -1)
 				{
 					// get clear to send (CTS) status
 					if (gc3355_get_cts_status(fd) == 1)
-						opt_sha2_units = DEFAULT_1_2V_SHA2; //dip-switch in L position
+						opt_sha2_units = DEFAULT_1_2V_SHA2_UNITS; //dip-switch in L position
 					else
-						opt_sha2_units = DEFAULT_0_9V_SHA2; // dip-switch in B position
+						opt_sha2_units = DEFAULT_0_9V_SHA2_UNITS; // dip-switch in B position
 				}
 
-				gc3355_open_sha2_unit(fd, opt_sha2_units);
+				gc3355_open_sha2_units(fd, opt_sha2_units);
 			}
-
-			if (usbstick)
+			else
 			{
-				// set request to send (RTS) status
-				gc3355_set_rts_status(fd, RTS_HIGH);
+				// open sha2 cores
+				gc3355_open_sha2_cores(fd, DEFAULT_ORB_SHA2_CORES);
+
+				//	gc3355_send_cmds(fd, no_fifo_cmd);
+
+				//gc3355_get_firmware_version(fd);
 			}
+		}
+
+		if (usbstick)
+		{
+			// set request to send (RTS) status
+			gc3355_set_rts_status(fd, RTS_HIGH);
 		}
 	}
 }
@@ -216,6 +319,7 @@ void gc3355_scrypt_init(int fd)
 	gc3355_send_cmds(fd, scrypt_init_cmd);
 }
 
+static
 void gc3355_scrypt_only_init(int fd)
 {
 	gc3355_send_cmds(fd, sha2_gating_cmd);
@@ -257,21 +361,30 @@ void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work)
 	cmd[155] = 0x78;
 }
 
-void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work)
+void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool simple)
 {
 	cmd[0] = 0x55;
 	cmd[1] = 0xaa;
 	cmd[2] = 0x0f;
 	cmd[3] = 0x00;
 
-	uint8_t temp_bin[64];
-	memset(temp_bin, 0, 64);
+	if (simple)
+	{
+		memcpy(cmd+4, work->midstate, 32);
+		memcpy(cmd+36, work->data+64, 12);
+		memcpy(cmd+48, &(work->id), 4);
+	}
+	else
+	{
+		uint8_t temp_bin[64];
+		memset(temp_bin, 0, 64);
 
-	memcpy(temp_bin, work->midstate, 32);
-	memcpy(temp_bin + 52, work->data + 64, 12);
+		memcpy(temp_bin, work->midstate, 32);
+		memcpy(temp_bin + 52, work->data + 64, 12);
 
-	memcpy(cmd + 8, work->midstate, 32);
-	memcpy(cmd + 40, temp_bin + 52, 12);
+		memcpy(cmd + 8, work->midstate, 32);
+		memcpy(cmd + 40, temp_bin + 52, 12);
+	}
 }
 
 uint32_t gc3355_get_firmware_version(int fd)

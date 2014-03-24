@@ -75,9 +75,6 @@ extern
 void gc3355_scrypt_init(int fd);
 
 extern
-void gc3355_scrypt_only_init(int fd);
-
-extern
 void gc3355_scrypt_restart(int fd);
 
 extern
@@ -87,7 +84,7 @@ extern
 void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work);
 
 extern
-void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work);
+void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool simple);
 
 extern
 uint32_t gc3355_get_firmware_version(int fd);

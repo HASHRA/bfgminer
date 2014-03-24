@@ -22,6 +22,12 @@ const char *firmware_request_cmd[] =
 };
 
 static
+const char *no_fifo_cmd[] = {
+	"55AAC000D0D0D0D00000000001000000",
+	NULL
+};
+
+static
 const char *pll_freq_1200M_cmd[] =
 {
 	"55AAEF000500E085",
@@ -105,7 +111,8 @@ static
 const char *pll_freq_600M_cmd[] =
 {
 	"55AAEF000500E082",
-	"55AA0FFF581400C0",
+    "55AA0FFF581400C0",
+	//"55aa0fff58140040",
 	NULL
 };
 
@@ -356,8 +363,11 @@ const char *scrypt_restart_cmd[] =
 static
 const char *scrypt_reset_cmd[] =
 {
-	"55AA1F2816000000", // Reset Scrypt(?)
-	"55AA1F2817000000", // Enable GCP(?)
+	"55AA1F2817000000",
+	"55AA1F2814000000",
+	"55AA1F2817000000",
+	//	"55AA1F2816000000", // Reset Scrypt(?)
+	//	"55AA1F2817000000", // Enable GCP(?)
 	NULL
 };
 

@@ -72,6 +72,9 @@ extern
 void gc3355_scrypt_reset(int fd);
 
 extern
+void gc3355_scrypt_only_reset(int fd);
+
+extern
 void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work);
 
 extern

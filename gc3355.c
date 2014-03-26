@@ -310,18 +310,24 @@ void gc3355_scrypt_init(int fd)
 	gc3355_send_cmds(fd, scrypt_init_cmd);
 }
 
-void gc3355_scrypt_reset(int fd);
+void gc3355_scrypt_only_reset(int fd);
 
 static
 void gc3355_scrypt_only_init(int fd)
 {
 	gc3355_send_cmds(fd, sha2_gating_cmd);
 	gc3355_send_cmds(fd, scrypt_only_init_cmd);
+	gc3355_scrypt_only_reset(fd);
 }
 
 void gc3355_scrypt_reset(int fd)
 {
 	gc3355_send_cmds(fd, scrypt_reset_cmd);
+}
+
+void gc3355_scrypt_only_reset(int fd)
+{
+	gc3355_send_cmds(fd, scrypt_only_reset_cmd);
 }
 
 void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work)

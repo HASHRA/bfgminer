@@ -342,8 +342,6 @@ static
 const char *scrypt_only_init_cmd[] =
 {
 	"55AAEF3040000000",
-	"55AA1F2810000000", // Close Scrypt(?)
-	"55AA1F2813000000", // Open Scrypt(?)
 	NULL
 };
 
@@ -359,7 +357,6 @@ const char *scrypt_init_cmd[] =
 };
 
 // called before job start by GridSeed when mining scrypt
-// called before job start by DualMiner when mining scrypt in scrypt-only (not dual-mode)
 static
 const char *scrypt_reset_cmd[] =
 {
@@ -371,6 +368,16 @@ const char *scrypt_reset_cmd[] =
 	// faster, for start of each job:
 	"55AA1F2816000000", // Reset Scrypt(?)
 	"55AA1F2817000000", // Enable GCP(?)
+	NULL
+};
+
+// called before job start by DualMiner when mining scrypt in scrypt-only (not dual-mode)
+// called while initializing DualMiner when mining scrypt in scrypt-only (not dual-mode)
+static
+const char *scrypt_only_reset_cmd[] =
+{
+	"55AA1F2810000000", // Close Scrypt(?)
+	"55AA1F2813000000", // Open Scrypt(?)
 	NULL
 };
 

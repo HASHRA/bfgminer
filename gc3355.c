@@ -406,96 +406,40 @@ uint32_t gc3355_get_firmware_version(int fd)
 	return fw_version;
 }
 
+void gc3355_set_pll_freq_dyn(const int fd, const int pll_freq)
+{
+	const unsigned n = pll_freq / 25;
+	const uint16_t x = (n * 0x20) + 0x7fe0;
+	const uint16_t y = n * 217;
+	uint8_t buf[0x10] = {
+		0x55    , 0xaa  , 0xef		, 0		,
+		0x05    ,    0  , x & 0xff	, x >> 8,
+		0x55    , 0xaa  , 0x0f		, 0xff	,
+		y & 0xff, y >> 8,    0		, 0xc0	,
+	};
+
+
+	gc3355_write(fd, buf, 0x08);
+	usleep(GC3355_COMMAND_DELAY);
+	gc3355_write(fd, buf + 0x08, 0x08);
+
+	applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, pll_freq);
+}
+
 void gc3355_set_pll_freq(const int fd, const int pll_freq)
 {
 	int actual_freq = pll_freq;
 
-	switch(pll_freq)
+	if (actual_freq <= 0)
 	{
-		case 400:
-		{
-			gc3355_send_cmds(fd, pll_freq_400M_cmd);
-			break;
-		}
-		case 500:
-		{
-			gc3355_send_cmds(fd, pll_freq_500M_cmd);
-			break;
-		}
-		case 550:
-		{
-			gc3355_send_cmds(fd, pll_freq_550M_cmd);
-			break;
-		}
-		case 600:
-		{
-			gc3355_send_cmds(fd, pll_freq_600M_cmd);
-			break;
-		}
-		case 650:
-		{
-			gc3355_send_cmds(fd, pll_freq_650M_cmd);
-			break;
-		}
-		case 700:
-		{
-			gc3355_send_cmds(fd, pll_freq_700M_cmd);
-			break;
-		}
-		case 750:
-		{
-			gc3355_send_cmds(fd, pll_freq_750M_cmd);
-			break;
-		}
-		case 800:
-		{
-			gc3355_send_cmds(fd, pll_freq_800M_cmd);
-			break;
-		}
-		case 850:
-		{
-			gc3355_send_cmds(fd, pll_freq_850M_cmd);
-			break;
-		}
-		case 900:
-		{
-			gc3355_send_cmds(fd, pll_freq_900M_cmd);
-			break;
-		}
-		case 950:
-		{
-			gc3355_send_cmds(fd, pll_freq_950M_cmd);
-			break;
-		}
-		case 1000:
-		{
-			gc3355_send_cmds(fd, pll_freq_1000M_cmd);
-			break;
-		}
-		case 1100:
-		{
-			gc3355_send_cmds(fd, pll_freq_1100M_cmd);
-			break;
-		}
-		case 1200:
-		{
-			gc3355_send_cmds(fd, pll_freq_1200M_cmd);
-			break;
-		}
-		default:
-		{
-			if (gc3355_get_cts_status(fd) == 1)
-				//1.2v - Scrypt mode
-				actual_freq = GC3355_STICK_SM_DEFAULT_FREQUENCY;
+		if (gc3355_get_cts_status(fd) == 1)
+			//1.2v - Scrypt mode
+			actual_freq = GC3355_STICK_SM_DEFAULT_FREQUENCY;
 
-			else
-				//0.9v - Scrypt + SHA mode
-				actual_freq = GC3355_STICK_DM_DEFAULT_FREQUENCY;
-
-			gc3355_set_pll_freq(fd, actual_freq);
-		}
+		else
+			//0.9v - Scrypt + SHA mode
+			actual_freq = GC3355_STICK_DM_DEFAULT_FREQUENCY;
 	}
 
-	if (pll_freq == actual_freq)
-		applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, actual_freq);
+	gc3355_set_pll_freq_dyn(fd, actual_freq);
 }

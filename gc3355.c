@@ -86,9 +86,7 @@ void _gc3355_send_cmds_bin(int fd, const char *cmds[], bool is_bin, int size)
 			break;
 
 		if (is_bin)
-		{
 			gc3355_write(fd, cmd, size);
-		}
 		else
 		{
 			int bin_size = strlen(cmd) / 2;
@@ -100,16 +98,8 @@ void _gc3355_send_cmds_bin(int fd, const char *cmds[], bool is_bin, int size)
 	}
 }
 
-void gc3355_send_cmds_bin(int fd, const char *cmds[], int size)
-{
-	_gc3355_send_cmds_bin(fd, cmds, true, size);
-}
-
-static
-void gc3355_send_cmds(int fd, const char *cmds[])
-{
-	_gc3355_send_cmds_bin(fd, cmds, false, -1);
-}
+#define gc3355_send_cmds_bin(fd, cmds, size)  _gc3355_send_cmds_bin(fd, cmds, true, size)
+#define gc3355_send_cmds(fd, cmds)  _gc3355_send_cmds_bin(fd, cmds, false, -1)
 
 static
 void gc3355_open_sha2_units(int fd, int sha2_units)
@@ -118,14 +108,10 @@ void gc3355_open_sha2_units(int fd, int sha2_units)
 	unsigned char ob_bin[8];
 	int i;
 
-	unit_count = sha2_units;
+	// should be 0 - 160
+	unit_count = sha2_units < 0 ? 0 : sha2_units > 160 ? 160 : sha2_units;
 
-	if (unit_count < 0)
-		unit_count = 0;
-	if (unit_count > 160)
-		unit_count = 160;
-
-	if (unit_count > 0 && unit_count <= 160)
+	if (unit_count > 0)
 	{
 		for(i = 0; i <= unit_count; i++)
 		{
@@ -156,7 +142,7 @@ void gc3355_open_sha2_cores(int fd, int sha2_cores)
 	c2 = mask >> 8;
 
 	memset(cmd, 0, sizeof(cmd));
-	memcpy(cmd, "\x55\xAA\xEF\x02", 4);
+	memcpy(cmd, "\x55\xaa\xef\x02", 4);
 	for (i = 4; i < 24; i++) {
 		cmd[i] = ((i%2)==0) ? c1 : c2;
 		gc3355_write(fd, cmd, sizeof(cmd));
@@ -283,7 +269,7 @@ void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only
 				// open sha2 cores
 				gc3355_open_sha2_cores(fd, DEFAULT_ORB_SHA2_CORES);
 
-				//	gc3355_send_cmds(fd, no_fifo_cmd);
+				//gc3355_send_cmds(fd, no_fifo_cmd);
 
 				//gc3355_get_firmware_version(fd);
 			}

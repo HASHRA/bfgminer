@@ -91,31 +91,28 @@ void dualminer_teardown_device(int fd)
 	gc3355_set_rts_status(fd, RTS_LOW);
 }
 
+static
+void dualminer_init_hashrate(struct cgpu_info *icarus)
+{
+	int fd = icarus->device_fd;
+	struct ICARUS_INFO *info = icarus->device_data;
+
+	// get clear to send (CTS) status
+	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
+		(opt_scrypt))
+		// adjust hash-rate for voltage
+		info->Hs = DUALMINER_SCRYPT_DM_HASH_TIME;
+}
+
 // runs when job starts and the device has been reset (or first run)
 static
 void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
 	int fd = icarus->device_fd;
 
-	if (opt_sha2_units == -1)
-	{
-		// get clear to send (CTS) status
-		if (gc3355_get_cts_status(fd) == 1)
-			opt_sha2_units = DEFAULT_1_2V_SHA2_UNITS; //dip-switch in L position
-		else
-			opt_sha2_units = DEFAULT_0_9V_SHA2_UNITS; // dip-switch in B position
-	}
-
 	gc3355_init_usbstick(fd, opt_pll_freq, !opt_dual_mode, false);
 
-	// get clear to send (CTS) status
-	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
-		(opt_scrypt))
-	{
-		// adjust hash-rate for voltage
-		struct ICARUS_INFO *info = icarus->device_data;
-		info->Hs = DUALMINER_SCRYPT_DM_HASH_TIME;
-	}
+	dualminer_init_hashrate(icarus);
 
 	applog(LOG_DEBUG, "%"PRIpreprv": dualminer: Init: pll=%d, scrypt: %d, scrypt only: %d",
 		   icarus->proc_repr,
@@ -237,10 +234,20 @@ bool dualminer_lowl_probe(const struct lowlevel_device_info * const info)
 static
 bool dualminer_thread_init(struct thr_info * const thr)
 {
-	struct cgpu_info * const cgpu = thr->cgpu;
+	struct cgpu_info * const icarus = thr->cgpu;
 
 	if (opt_scrypt)
-		cgpu->min_nonce_diff = 1./0x10000;
+		icarus->min_nonce_diff = 1./0x10000;
+
+	// set opt_sha2_units defaults depending on dip-switch
+	if (opt_sha2_units == -1)
+	{
+		// get clear to send (CTS) status
+		if (gc3355_get_cts_status(icarus->device_fd) == 1)
+			opt_sha2_units = DEFAULT_1_2V_SHA2_UNITS; //dip-switch in L position
+		else
+			opt_sha2_units = DEFAULT_0_9V_SHA2_UNITS; // dip-switch in B position
+	}
 
 	return icarus_init(thr);
 }

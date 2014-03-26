@@ -25,12 +25,6 @@ int opt_sha2_units;
 extern
 int opt_pll_freq;
 
-// mining both Scrypt & SHA2 at the same time with two processes
-// SHA2 process must be run first, no arg requirements, first serial port will be used
-// Scrypt process must be launched after, --scrypt and --dual-mode args required
-extern
-bool opt_dual_mode;
-
 // GridSeed common code begins here
 
 #define GC3355_ORB_SM_DEFAULT_FREQUENCY		600
@@ -66,10 +60,10 @@ extern
 ssize_t gc3355_write(int fd, const void * const buf, const size_t size);
 
 extern
-void gc3355_init_usborb(int fd, int pll_freq, bool detect_only);
+void gc3355_init_usborb(int fd, int pll_freq, bool scrypt_only, bool detect_only);
 
 extern
-void gc3355_init_usbstick(int fd, int pll_freq, bool detect_only);
+void gc3355_init_usbstick(int fd, int pll_freq, bool scrypt_only, bool detect_only);
 
 extern
 void gc3355_scrypt_init(int fd);

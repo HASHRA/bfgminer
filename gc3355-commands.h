@@ -363,11 +363,14 @@ const char *scrypt_restart_cmd[] =
 static
 const char *scrypt_reset_cmd[] =
 {
-	"55AA1F2817000000",
-	"55AA1F2814000000",
-	"55AA1F2817000000",
-	//	"55AA1F2816000000", // Reset Scrypt(?)
-	//	"55AA1F2817000000", // Enable GCP(?)
+	// seen in sha-2 init:
+//	"55AA1F2817000000",
+//	"55AA1F2814000000",
+//	"55AA1F2817000000",
+
+	// faster, for start of each job:
+	"55AA1F2816000000", // Reset Scrypt(?)
+	"55AA1F2817000000", // Enable GCP(?)
 	NULL
 };
 

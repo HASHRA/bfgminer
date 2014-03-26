@@ -28,7 +28,6 @@
 
 int opt_sha2_units = -1;
 int opt_pll_freq = 0; // default is set in gc3355_set_pll_freq
-bool opt_dual_mode = false;
 
 #define GC3355_CHIP_NAME			"gc3355"
 
@@ -218,7 +217,7 @@ void gc3355_sha2_init(int fd)
 static
 void gc3355_scrypt_only_init(int fd);
 
-void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
+void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only, bool usbstick)
 {
 	// reset chips
 	gc3355_send_cmds(fd, str_gcp_reset_cmd);
@@ -235,7 +234,7 @@ void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
 	if (usbstick)
 	{
 		// initialize units
-		if (opt_scrypt && !opt_dual_mode)
+		if (opt_scrypt && scrypt_only)
 		{
 			gc3355_scrypt_only_init(fd);
 		}
@@ -304,14 +303,14 @@ void gc3355_init_device(int fd, int pll_freq, bool detect_only, bool usbstick)
 	}
 }
 
-void gc3355_init_usborb(int fd, int pll_freq, bool detect_only)
+void gc3355_init_usborb(int fd, int pll_freq, bool scrypt_only, bool detect_only)
 {
-	gc3355_init_device(fd, pll_freq, detect_only, false);
+	gc3355_init_device(fd, pll_freq, scrypt_only, detect_only, false);
 }
 
-void gc3355_init_usbstick(int fd, int pll_freq, bool detect_only)
+void gc3355_init_usbstick(int fd, int pll_freq, bool scrypt_only, bool detect_only)
 {
-	gc3355_init_device(fd, pll_freq, detect_only, true);
+	gc3355_init_device(fd, pll_freq, scrypt_only, detect_only, true);
 }
 
 void gc3355_scrypt_init(int fd)

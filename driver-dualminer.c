@@ -33,6 +33,11 @@
   #include <io.h>
 #endif
 
+// mining both Scrypt & SHA2 at the same time with two processes
+// SHA2 process must be run first, no arg requirements, first serial port will be used
+// Scrypt process must be launched after, --scrypt and --dual-mode args required
+bool opt_dual_mode = false;
+
 #define DUALMINER_IO_SPEED 115200
 
 #define DUALMINER_SCRYPT_SM_HASH_TIME	0.00001428571429
@@ -89,7 +94,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
 	int fd = icarus->device_fd;
 
-	gc3355_init_usbstick(fd, opt_pll_freq, false);
+	gc3355_init_usbstick(fd, opt_pll_freq, !opt_dual_mode, false);
 
 	// get clear to send (CTS) status
 	if ((gc3355_get_cts_status(fd) != 1) && // 0.9v - dip-switch set to B
@@ -113,7 +118,7 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 static
 bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __maybe_unused info)
 {
-	gc3355_init_usbstick(fd, opt_pll_freq, true);
+	gc3355_init_usbstick(fd, opt_pll_freq, !opt_dual_mode, true);
 
 	return true;
 }

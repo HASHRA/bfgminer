@@ -82,7 +82,7 @@ bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct 
 
 	device->device_fd = fd;
 
-	gc3355_init_usborb(device->device_fd, info->freq, false);
+	gc3355_init_usborb(device->device_fd, info->freq, false, false);
 
 	applog(LOG_INFO, "Found %"PRIpreprv" at %s", device->proc_repr, path);
 	applog(LOG_DEBUG, "%"PRIpreprv": Init: firmware=%d", device->proc_repr, fw_version);

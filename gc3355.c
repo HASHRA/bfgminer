@@ -259,7 +259,7 @@ void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only
 
 		// initialize units
 		gc3355_send_cmds(fd, multichip_init_cmd);
-		gc3355_scrypt_reset(fd);
+		gc3355_scrypt_init(fd);
 
 		//set freq
 		gc3355_set_pll_freq(fd, pll_freq);

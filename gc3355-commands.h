@@ -347,7 +347,8 @@ const char *scrypt_only_init_cmd[] =
 	NULL
 };
 
-// called while initializing DualMiner in when mining sha or scrypt in scrypt+sha (dual-mode)
+// called when initializing GridSeed device
+// called while initializing DualMiner when mining in scrypt+sha (dual-mode)
 // called before job start by DualMiner when mining scrypt in scrypt+sha (dual-mode)
 static
 const char *scrypt_init_cmd[] =
@@ -357,13 +358,12 @@ const char *scrypt_init_cmd[] =
 	NULL
 };
 
-// called when initializing GridSeed device
 // called before job start by GridSeed when mining scrypt
 // called before job start by DualMiner when mining scrypt in scrypt-only (not dual-mode)
 static
 const char *scrypt_reset_cmd[] =
 {
-	// seen in sha-2 init:
+	// seen in sha-2 GridSeed init:
 //	"55AA1F2817000000",
 //	"55AA1F2814000000",
 //	"55AA1F2817000000",

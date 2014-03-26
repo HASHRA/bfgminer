@@ -33,9 +33,6 @@ int opt_pll_freq = 0; // default is set in gc3355_set_pll_freq
 
 // thumb stick voltages mapped to sha2_units
 
-#define DEFAULT_0_9V_SHA2_UNITS		60
-#define DEFAULT_1_2V_SHA2_UNITS		0
-
 #define DEFAULT_ORB_SHA2_CORES		16
 
 static
@@ -215,29 +212,37 @@ void gc3355_sha2_init(int fd)
 }
 
 static
-void gc3355_scrypt_only_init(int fd);
-
-void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only, bool usbstick)
+void gc3355_reset_chips(int fd)
 {
 	// reset chips
 	gc3355_send_cmds(fd, str_gcp_reset_cmd);
 	gc3355_send_cmds(fd, str_btc_reset_cmd);
+}
+
+static
+void gc3355_reset_dtr(int fd)
+{
+	// set data terminal ready (DTR) status
+	gc3355_set_dtr_status(fd, DTR_HIGH);
+	usleep(GC3355_COMMAND_DELAY);
+	gc3355_set_dtr_status(fd, DTR_LOW);
+}
+
+static
+void gc3355_scrypt_only_init(int fd);
+
+void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only, bool usbstick)
+{
+	gc3355_reset_chips(fd);
 
 	if (usbstick)
-	{
-		// set data terminal ready (DTR) status
-		gc3355_set_dtr_status(fd, DTR_HIGH);
-		usleep(GC3355_COMMAND_DELAY);
-		gc3355_set_dtr_status(fd, DTR_LOW);
-	}
+		gc3355_reset_dtr(fd);
 
 	if (usbstick)
 	{
 		// initialize units
 		if (opt_scrypt && scrypt_only)
-		{
 			gc3355_scrypt_only_init(fd);
-		}
 		else
 		{
 			gc3355_sha2_init(fd);
@@ -271,19 +276,8 @@ void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only
 		if (!opt_scrypt)
 		{
 			if (usbstick)
-			{
 				// open sha2 units
-				if (opt_sha2_units == -1)
-				{
-					// get clear to send (CTS) status
-					if (gc3355_get_cts_status(fd) == 1)
-						opt_sha2_units = DEFAULT_1_2V_SHA2_UNITS; //dip-switch in L position
-					else
-						opt_sha2_units = DEFAULT_0_9V_SHA2_UNITS; // dip-switch in B position
-				}
-
 				gc3355_open_sha2_units(fd, opt_sha2_units);
-			}
 			else
 			{
 				// open sha2 cores
@@ -296,10 +290,8 @@ void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only
 		}
 
 		if (usbstick)
-		{
 			// set request to send (RTS) status
 			gc3355_set_rts_status(fd, RTS_HIGH);
-		}
 	}
 }
 
@@ -318,17 +310,13 @@ void gc3355_scrypt_init(int fd)
 	gc3355_send_cmds(fd, scrypt_init_cmd);
 }
 
+void gc3355_scrypt_reset(int fd);
+
 static
 void gc3355_scrypt_only_init(int fd)
 {
 	gc3355_send_cmds(fd, sha2_gating_cmd);
 	gc3355_send_cmds(fd, scrypt_only_init_cmd);
-	gc3355_send_cmds(fd, scrypt_restart_cmd);
-}
-
-void gc3355_scrypt_restart(int fd)
-{
-	gc3355_send_cmds(fd, scrypt_restart_cmd);
 }
 
 void gc3355_scrypt_reset(int fd)

@@ -69,9 +69,6 @@ extern
 void gc3355_scrypt_init(int fd);
 
 extern
-void gc3355_scrypt_restart(int fd);
-
-extern
 void gc3355_scrypt_reset(int fd);
 
 extern

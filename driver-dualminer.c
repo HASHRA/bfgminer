@@ -44,8 +44,11 @@ bool opt_dual_mode = false;
 #define DUALMINER_SCRYPT_DM_HASH_TIME	0.00003333333333
 #define DUALMINER_SHA2_DM_HASH_TIME		0.00000000300000
 
-#define DUALMINER_SCRYPT_READ_COUNT 48  // 4.8s to read
-#define DUALMINER_SHA2_READ_COUNT	16  // 1.6s to read
+#define DUALMINER_SCRYPT_READ_COUNT		48  // 4.8s to read
+#define DUALMINER_SHA2_READ_COUNT		16  // 1.6s to read
+
+#define DEFAULT_0_9V_SHA2_UNITS			60
+#define DEFAULT_1_2V_SHA2_UNITS			0
 
 static
 const char sha2_golden_ob[] =
@@ -94,6 +97,15 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 {
 	int fd = icarus->device_fd;
 
+	if (opt_sha2_units == -1)
+	{
+		// get clear to send (CTS) status
+		if (gc3355_get_cts_status(fd) == 1)
+			opt_sha2_units = DEFAULT_1_2V_SHA2_UNITS; //dip-switch in L position
+		else
+			opt_sha2_units = DEFAULT_0_9V_SHA2_UNITS; // dip-switch in B position
+	}
+
 	gc3355_init_usbstick(fd, opt_pll_freq, !opt_dual_mode, false);
 
 	// get clear to send (CTS) status
@@ -140,7 +152,7 @@ bool dualminer_job_start(struct thr_info * const thr)
 		if (opt_dual_mode)
 			gc3355_scrypt_init(fd);
 		else
-			gc3355_scrypt_restart(fd);
+			gc3355_scrypt_reset(fd);
 	}
 
 	return icarus_job_start(thr);

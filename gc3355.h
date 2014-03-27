@@ -31,16 +31,11 @@ int opt_pll_freq;
 #define GC3355_ORB_DEFAULT_CHIPS			5
 #define GC3355_READ_SIZE					12
 
-// static information
 struct gc3355_orb_info
 {
 	uint16_t freq;
-};
-
-// dynamic information
-struct gc3355_orb_state
-{
-	struct timeval scanhash_time;
+	int needwork;
+	uint32_t last_work_id;
 };
 
 #define gc3355_open(path)  serial_open(path, 115200, 1, true)

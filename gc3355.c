@@ -278,6 +278,9 @@ void gc3355_init_device(int fd, int pll_freq, bool scrypt_only, bool detect_only
 		if (usbstick)
 			// set request to send (RTS) status
 			gc3355_set_rts_status(fd, RTS_HIGH);
+		else
+			// no fifo for orb
+			gc3355_send_cmds(fd, no_fifo_cmd);
 	}
 }
 
@@ -318,14 +321,16 @@ void gc3355_scrypt_only_reset(int fd)
 
 void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work)
 {
+	// command header
 	cmd[0] = 0x55;
 	cmd[1] = 0xaa;
 	cmd[2] = 0x1f;
 	cmd[3] = 0x00;
 
-	memcpy(cmd+4, work->target, 32);
-	memcpy(cmd+36, work->midstate, 32);
-	memcpy(cmd+68, work->data, 80);
+	// task data
+	memcpy(cmd + 4, work->target, 32);
+	memcpy(cmd + 36, work->midstate, 32);
+	memcpy(cmd + 68, work->data, 80);
 
 	// nonce_max
 	cmd[148] = 0xff;
@@ -334,14 +339,13 @@ void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work)
 	cmd[151] = 0xff;
 
 	// taskid
-	cmd[152] = 0x12;
-	cmd[153] = 0x34;
-	cmd[154] = 0x56;
-	cmd[155] = 0x78;
+	int workid = work->device_id;
+	memcpy(cmd + 152, &(work->device_id), 4);
 }
 
 void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool simple)
 {
+	// command header
 	cmd[0] = 0x55;
 	cmd[1] = 0xaa;
 	cmd[2] = 0x0f;
@@ -349,9 +353,12 @@ void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool sim
 
 	if (simple)
 	{
-		memcpy(cmd+4, work->midstate, 32);
-		memcpy(cmd+36, work->data+64, 12);
-		memcpy(cmd+48, &(work->id), 4);
+		memcpy(cmd + 4, work->midstate, 32);
+		memcpy(cmd + 36, work->data + 64, 12);
+
+		// taskid
+		int workid = work->device_id;
+		memcpy(cmd + 48, &(work->device_id), 4);
 	}
 	else
 	{

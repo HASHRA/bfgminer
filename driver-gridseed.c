@@ -20,6 +20,7 @@
 
 #define GRIDSEED_DEFAULT_FREQUENCY		600
 #define GRIDSEED_HASH_SPEED				0.0851128926	// in ms
+#define GRIDSEED_MAX_QUEUED				8
 
 BFG_REGISTER_DRIVER(gridseed_drv)
 
@@ -38,6 +39,7 @@ struct cgpu_info *gridseed_alloc_device(const char *path, struct device_drv *dri
 	device->device_path = strdup(path);
 	device->device_fd = -1;
 	device->threads = 1;
+	device->procs = GC3355_ORB_DEFAULT_CHIPS;
 	device->device_data = info;
 
 	return device;
@@ -131,6 +133,22 @@ bool gridseed_thread_prepare(struct thr_info *thr)
 }
 
 static
+bool gridseed_set_queue_full(const struct cgpu_info * const device, int needwork);
+
+static
+bool gridseed_thread_init(struct thr_info *master_thr)
+{
+	struct cgpu_info * const device = master_thr->cgpu, *proc;
+	gridseed_set_queue_full(device, 0);
+	timer_set_now(&master_thr->tv_poll);
+
+	// kick off queue minerloop
+	gridseed_set_queue_full(device, device->procs * 2);
+
+	return true;
+}
+
+static
 void gridseed_thread_shutdown(struct thr_info *thr)
 {
 	struct cgpu_info *device = thr->cgpu;
@@ -139,22 +157,47 @@ void gridseed_thread_shutdown(struct thr_info *thr)
 	free(thr->cgpu_data);
 }
 
+static
+void gridseed_reinit_device(struct cgpu_info * const proc)
+{
+	timer_set_now(&proc->thr[0]->tv_poll);
+}
+
 /*
- * mining loop
+ * queued mining loop
  */
 
-// send work to the device
 static
-bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *work)
+bool gridseed_set_queue_full(const struct cgpu_info * const device, int needwork)
 {
-	struct cgpu_info *device = thr->cgpu;
-	struct gc3355_orb_info *info = device->device_data;
-	struct gc3355_orb_state * const state = thr->cgpu_data;
+	struct gc3355_orb_info * const info = device->device_data;
+	struct thr_info * const master_thr = device->thr[0];
 
+	if (needwork != -1)
+		info->needwork = needwork;
+
+	const bool full = (device->device_fd == -1 || !info->needwork);
+
+	if (full == master_thr->queue_full)
+		return full;
+
+	for (const struct cgpu_info *proc = device; proc; proc = proc->next_proc)
+	{
+		struct thr_info * const thr = proc->thr[0];
+		thr->queue_full = full;
+	}
+
+	return full;
+}
+
+static
+bool gridseed_send_work(const struct cgpu_info * const device, struct work *work)
+{
+	struct gc3355_orb_info * const info = device->device_data;
 	int work_size = opt_scrypt ? 156 : 52;
 	unsigned char cmd[work_size];
 
-	cgtime(&state->scanhash_time);
+	work->device_id = ++info->last_work_id;
 
 	if (opt_scrypt)
 	{
@@ -166,35 +209,149 @@ bool gridseed_prepare_work(struct thr_info __maybe_unused *thr, struct work *wor
 		gc3355_sha2_prepare_work(cmd, work, true);
 	}
 
-	return (gc3355_write(device->device_fd, cmd, sizeof(cmd)) == sizeof(cmd));
-}
+	// send work
+	if (sizeof(cmd) != gc3355_write(device->device_fd, cmd, sizeof(cmd)))
+	{
+		applog(LOG_ERR, "%s: Failed to send work", device->dev_repr);
+		return false;
+	}
 
-// read response (nonce) from the device
-
-static
-int64_t gridseed_calc_hashes(struct thr_info *thr)
-{
-	struct cgpu_info *device = thr->cgpu;
-	struct gc3355_orb_state * const state = thr->cgpu_data;
-	struct timeval old_scanhash_time = state->scanhash_time;
-	cgtime(&state->scanhash_time);
-	int elapsed_ms = ms_tdiff(&state->scanhash_time, &old_scanhash_time);
-
-	struct gc3355_orb_info *info = device->device_data;
-	return GRIDSEED_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * GC3355_ORB_DEFAULT_CHIPS);
+	return true;
 }
 
 static
-int64_t gridseed_scanhash(struct thr_info *thr, struct work *work, int64_t __maybe_unused max_nonce)
+void gridseed_prune_queue(const struct cgpu_info * const device, struct work *work)
 {
-	struct cgpu_info *device = thr->cgpu;
-	struct gc3355_orb_info *info = device->device_data;
+	struct thr_info * const master_thr = device->thr[0];
 
+	// prune queue
+	int prunequeue = HASH_COUNT(master_thr->work_list) - GRIDSEED_MAX_QUEUED;
+	if (prunequeue > 0)
+	{
+		struct work *tmp;
+		applog(LOG_DEBUG, "%s: Pruning %d old work item%s",
+		       device->dev_repr, prunequeue, prunequeue == 1 ? "" : "s");
+		HASH_ITER(hh, master_thr->work_list, work, tmp)
+		{
+			HASH_DEL(master_thr->work_list, work);
+			free_work(work);
+			if (--prunequeue < 1)
+				break;
+		}
+	}
+}
+
+// send work to the device & queue work
+static
+bool gridseed_queue_append(struct thr_info * const thr, struct work *work)
+{
+	const struct cgpu_info * const device = thr->cgpu->device;
+	struct gc3355_orb_info * const info = device->device_data;
+	struct thr_info * const master_thr = device->thr[0];
+
+	// if queue is full (-1 is a check flag) do not append new work
+	if (gridseed_set_queue_full(device, -1))
+		return false;
+
+	// send work
+	if (!gridseed_send_work(device, work))
+		return false;
+
+	// store work in queue
+	HASH_ADD(hh, master_thr->work_list, device_id, sizeof(work->device_id), work);
+
+	// prune queue
+	gridseed_prune_queue(device, work);
+
+	// sets info->needwork equal to 2nd arg and updates "full" flags
+	gridseed_set_queue_full(device, info->needwork - 1);
+
+	return true;
+}
+
+static
+void gridseed_queue_flush(struct thr_info * const thr)
+{
+	const struct cgpu_info *device = thr->cgpu;
+	if (device != device->device)
+		return;
+
+	gridseed_set_queue_full(device, device->procs);
+}
+
+static
+const struct cgpu_info *gridseed_proc_by_id(const struct cgpu_info * const dev, int procid)
+{
+	const struct cgpu_info *proc = dev;
+	for (int i = 0; i < procid; ++i)
+	{
+		proc = proc->next_proc;
+		if (unlikely(!proc))
+			return NULL;
+	}
+	return proc;
+}
+
+static
+void gridseed_submit_nonce(struct thr_info * const master_thr, const unsigned char buf[GC3355_READ_SIZE])
+{
+	struct work *work;
+	uint32_t nonce;
+	int workid;
+	struct cgpu_info * const device = master_thr->cgpu;
+	struct gc3355_orb_info * const info = device->device_data;
+
+	// extract workid from buffer
+	memcpy(&workid, buf + 8, 4);
+	// extract nonce from buffer
+	memcpy(&nonce, buf + 4, 4);
+	// extract chip # from nonce
+	const int chip = nonce / ((uint32_t)0xffffffff / GC3355_ORB_DEFAULT_CHIPS);
+	// find processor by device & chip
+	const struct cgpu_info *proc = gridseed_proc_by_id(device, chip);
+	// default process to device
+	if (unlikely(!proc))
+		proc = device;
+	// the thread specific to the ASIC chip:
+	struct thr_info * thr = proc->thr[0];
+
+	nonce = htole32(nonce);
+
+	// find the queued work for this nonce, by workid
+	HASH_FIND(hh, master_thr->work_list, &workid, sizeof(workid), work);
+	if (work)
+		submit_nonce(thr, work, nonce);
+	else
+		inc_hw_errors2(thr, NULL, &nonce);
+
+	gridseed_set_queue_full(device, info->needwork + 2);
+}
+
+static
+void gridseed_estimate_hashes(const struct cgpu_info * const device)
+{
+	const struct cgpu_info *proc = device;
+	const struct gc3355_orb_info *info = device->device_data;
+
+	while (true)
+	{
+		hashes_done2(proc->thr[0], info->freq * 0xb4, NULL);
+		proc = proc->next_proc;
+		if (unlikely(!proc))
+			return;
+	}
+}
+
+// read from device for nonce or command
+static
+void gridseed_poll(struct thr_info * const master_thr)
+{
+	struct cgpu_info * const device = master_thr->cgpu;
+	int fd = device->device_fd;
 	unsigned char buf[GC3355_READ_SIZE];
 	int read = 0;
-	int fd = device->device_fd;
 
-	while (!thr->work_restart && (read = gc3355_read(fd, (char *)buf, GC3355_READ_SIZE)) > 0)
+	while (!master_thr->work_restart && (read = gc3355_read(device->device_fd, (char *)buf, GC3355_READ_SIZE)) > 0)
 	{
 		if (buf[0] == 0x55)
 		{
@@ -206,20 +363,18 @@ int64_t gridseed_scanhash(struct thr_info *thr, struct work *work, int64_t __may
 				case 0x10: // BTC result
 				case 0x20: // LTC result
 				{
-					uint32_t nonce = *(uint32_t *)(buf+4);
-					nonce = le32toh(nonce);
-					submit_nonce(thr, work, nonce);
+					gridseed_submit_nonce(master_thr, buf);
 					break;
 				}
 			}
 		} else
 		{
 			applog(LOG_ERR, "%"PRIpreprv": Unrecognized response", device->proc_repr);
-			return -1;
+			return;
 		}
 	}
 
-	return gridseed_calc_hashes(thr);
+	gridseed_estimate_hashes(device);
 }
 
 /*
@@ -259,13 +414,16 @@ struct device_drv gridseed_drv =
 
 	// initialize device
 	.thread_prepare = gridseed_thread_prepare,
+	.thread_init = gridseed_thread_init,
+	.reinit_device = gridseed_reinit_device,
 
 	// specify mining type - scanhash
-	.minerloop = minerloop_scanhash,
+	.minerloop = minerloop_queue,
 
-	// scanhash mining hooks
-	.prepare_work = gridseed_prepare_work,
-	.scanhash = gridseed_scanhash,
+	// queued mining hooks
+	.queue_append = gridseed_queue_append,
+	.queue_flush = gridseed_queue_flush,
+	.poll = gridseed_poll,
 
 	// teardown device
 	.thread_shutdown = gridseed_thread_shutdown,

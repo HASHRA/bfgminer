@@ -18,6 +18,9 @@
 #include "lowl-vcom.h"
 #include "gc3355.h"
 
+#define GRIDSEED_DEFAULT_FREQUENCY		600
+#define GRIDSEED_HASH_SPEED				0.0851128926	// in ms
+
 BFG_REGISTER_DRIVER(gridseed_drv)
 
 /*
@@ -47,7 +50,7 @@ struct gc3355_orb_info *gridseed_alloc_info()
 	if (unlikely(!info))
 		quit(1, "Failed to malloc gc3355_orb_info");
 
-	info->freq = GC3355_ORB_SM_DEFAULT_FREQUENCY;
+	info->freq = GRIDSEED_DEFAULT_FREQUENCY;
 
 	return info;
 }
@@ -178,7 +181,7 @@ int64_t gridseed_calc_hashes(struct thr_info *thr)
 	int elapsed_ms = ms_tdiff(&state->scanhash_time, &old_scanhash_time);
 
 	struct gc3355_orb_info *info = device->device_data;
-	return GC3355_ORB_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * GC3355_ORB_DEFAULT_CHIPS);
+	return GRIDSEED_HASH_SPEED * (double)elapsed_ms * (double)(info->freq * GC3355_ORB_DEFAULT_CHIPS);
 }
 
 static

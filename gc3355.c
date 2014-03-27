@@ -144,7 +144,7 @@ void gc3355_open_sha2_cores(int fd, int sha2_cores)
 	memset(cmd, 0, sizeof(cmd));
 	memcpy(cmd, "\x55\xaa\xef\x02", 4);
 	for (i = 4; i < 24; i++) {
-		cmd[i] = ((i%2)==0) ? c1 : c2;
+		cmd[i] = ((i % 2) == 0) ? c1 : c2;
 		gc3355_write(fd, cmd, sizeof(cmd));
 		usleep(GC3355_COMMAND_DELAY);
 	}
@@ -392,8 +392,7 @@ uint32_t gc3355_get_firmware_version(int fd)
 	return fw_version;
 }
 
-static
-void gc3355_set_pll_freq_dyn(const int fd, const int pll_freq)
+void gc3355_set_pll_freq(const int fd, const int pll_freq)
 {
 	const unsigned n = pll_freq / 25;
 	const uint16_t x = (n * 0x20) + 0x7fe0;
@@ -411,22 +410,4 @@ void gc3355_set_pll_freq_dyn(const int fd, const int pll_freq)
 	gc3355_write(fd, buf + 0x08, 0x08);
 
 	applog(LOG_DEBUG, "%s fd=%d: Set %s core frequency to %d MHz", GC3355_CHIP_NAME, fd, GC3355_CHIP_NAME, pll_freq);
-}
-
-void gc3355_set_pll_freq(const int fd, const int pll_freq)
-{
-	int actual_freq = pll_freq;
-
-	if (actual_freq <= 0)
-	{
-		if (gc3355_get_cts_status(fd) == 1)
-			//1.2v - Scrypt mode
-			actual_freq = GC3355_STICK_SM_DEFAULT_FREQUENCY;
-
-		else
-			//0.9v - Scrypt + SHA mode
-			actual_freq = GC3355_STICK_DM_DEFAULT_FREQUENCY;
-	}
-
-	gc3355_set_pll_freq_dyn(fd, actual_freq);
 }

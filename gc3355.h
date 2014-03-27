@@ -27,16 +27,9 @@ int opt_pll_freq;
 
 // GridSeed common code begins here
 
-#define GC3355_ORB_SM_DEFAULT_FREQUENCY		600
-#define GC3355_STICK_DM_DEFAULT_FREQUENCY	550
-#define GC3355_STICK_SM_DEFAULT_FREQUENCY	850
-
 #define GC3355_COMMAND_DELAY				20000
-
 #define GC3355_ORB_DEFAULT_CHIPS			5
-
 #define GC3355_READ_SIZE					12
-#define GC3355_ORB_HASH_SPEED				0.0851128926	// in ms
 
 // static information
 struct gc3355_orb_info

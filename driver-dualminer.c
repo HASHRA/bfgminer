@@ -47,8 +47,11 @@ bool opt_dual_mode = false;
 #define DUALMINER_SCRYPT_READ_COUNT		48  // 4.8s to read
 #define DUALMINER_SHA2_READ_COUNT		16  // 1.6s to read
 
-#define DEFAULT_0_9V_SHA2_UNITS			60
-#define DEFAULT_1_2V_SHA2_UNITS			0
+#define DUALMINER_0_9V_SHA2_UNITS			60
+#define DUALMINER_1_2V_SHA2_UNITS			0
+
+#define DUALMINER_DM_DEFAULT_FREQUENCY	550
+#define DUALMINER_SM_DEFAULT_FREQUENCY	850
 
 static
 const char sha2_golden_ob[] =
@@ -121,12 +124,39 @@ void dualminer_init_firstrun(struct cgpu_info *icarus)
 		   opt_scrypt && !opt_dual_mode);
 }
 
+// set defaults for options that the user didn't specify
+static
+void dualminer_set_defaults(int fd)
+{
+	// set opt_sha2_units defaults depending on dip-switch
+	if (opt_sha2_units == -1)
+	{
+		// get clear to send (CTS) status
+		if (gc3355_get_cts_status(fd) == 1)
+			opt_sha2_units = DUALMINER_1_2V_SHA2_UNITS; // dip-switch in L position
+		else
+			opt_sha2_units = DUALMINER_0_9V_SHA2_UNITS; // dip-switch in B position
+	}
+
+	// set opt_pll_freq defaults depending on dip-switch
+	if (opt_pll_freq <= 0)
+	{
+		// get clear to send (CTS) status
+		if (gc3355_get_cts_status(fd) == 1)
+			opt_pll_freq = DUALMINER_SM_DEFAULT_FREQUENCY; // 1.2v - dip-switch in L position
+		else
+			opt_pll_freq = DUALMINER_DM_DEFAULT_FREQUENCY; // 0.9v - dip-switch in B position
+	}
+}
+
 // ICARUS_INFO functions - icarus-common.h
 
 // runs after fd is opened but before the device detection code
 static
 bool dualminer_detect_init(const char *devpath, int fd, struct ICARUS_INFO * __maybe_unused info)
 {
+	dualminer_set_defaults(fd);
+
 	gc3355_init_usbstick(fd, opt_pll_freq, !opt_dual_mode, true);
 
 	return true;
@@ -238,16 +268,6 @@ bool dualminer_thread_init(struct thr_info * const thr)
 
 	if (opt_scrypt)
 		icarus->min_nonce_diff = 1./0x10000;
-
-	// set opt_sha2_units defaults depending on dip-switch
-	if (opt_sha2_units == -1)
-	{
-		// get clear to send (CTS) status
-		if (gc3355_get_cts_status(icarus->device_fd) == 1)
-			opt_sha2_units = DEFAULT_1_2V_SHA2_UNITS; //dip-switch in L position
-		else
-			opt_sha2_units = DEFAULT_0_9V_SHA2_UNITS; // dip-switch in B position
-	}
 
 	return icarus_init(thr);
 }

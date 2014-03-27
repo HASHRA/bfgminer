@@ -345,7 +345,7 @@ void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool sim
 	cmd[0] = 0x55;
 	cmd[1] = 0xaa;
 	cmd[2] = 0x0f;
-	cmd[3] = 0x00;
+	cmd[3] = 0x01;
 
 	if (simple)
 	{

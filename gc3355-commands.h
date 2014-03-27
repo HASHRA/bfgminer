@@ -269,14 +269,14 @@ const char *scrypt_only_reset_cmd[] =
 };
 
 static
-const char *str_gcp_reset_cmd[] =
+const char *gcp_chip_reset_cmd[] =
 {
 	"55AAC000808080800000000001000000", // GCP (GridChip) reset
 	NULL
 };
 
 static
-const char *str_btc_reset_cmd[] =
+const char *btc_chip_reset_cmd[] =
 {
 	"55AAC000E0E0E0E00000000001000000", // BTC reset
 	NULL

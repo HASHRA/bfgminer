@@ -201,8 +201,8 @@ static
 void gc3355_reset_chips(int fd)
 {
 	// reset chips
-	gc3355_send_cmds(fd, str_gcp_reset_cmd);
-	gc3355_send_cmds(fd, str_btc_reset_cmd);
+	gc3355_send_cmds(fd, gcp_chip_reset_cmd);
+	gc3355_send_cmds(fd, btc_chip_reset_cmd);
 }
 
 static

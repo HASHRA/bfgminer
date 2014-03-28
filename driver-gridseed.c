@@ -349,8 +349,6 @@ void gridseed_poll(struct thr_info * const master_thr)
 	int fd = device->device_fd;
 	unsigned char buf[GC3355_READ_SIZE];
 	int read = 0;
-	struct timeval tv_timeout;
-	timer_set_delay_from_now(&tv_timeout, 10000);
 
 	while (!master_thr->work_restart && (read = gc3355_read(device->device_fd, (char *)buf, GC3355_READ_SIZE)) > 0)
 	{
@@ -371,12 +369,6 @@ void gridseed_poll(struct thr_info * const master_thr)
 		} else
 		{
 			applog(LOG_ERR, "%"PRIpreprv": Unrecognized response", device->proc_repr);
-			break;
-		}
-
-		if (timer_passed(&tv_timeout, NULL))
-		{
-			applog(LOG_DEBUG, "%s poll: timeout met", device->dev_repr);
 			break;
 		}
 	}

@@ -35,7 +35,6 @@ struct gc3355_orb_info
 {
 	uint16_t freq;
 	int needwork;
-	uint32_t last_work_id;
 };
 
 #define gc3355_open(path)  serial_open(path, 115200, 1, true)

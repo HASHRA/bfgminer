@@ -19,8 +19,7 @@
 #include "gc3355.h"
 
 #define GRIDSEED_DEFAULT_FREQUENCY		600
-#define GRIDSEED_HASH_SPEED				0.0851128926	// in ms
-#define GRIDSEED_MAX_QUEUED				8
+#define GRIDSEED_MAX_QUEUED				10
 
 BFG_REGISTER_DRIVER(gridseed_drv)
 
@@ -197,8 +196,6 @@ bool gridseed_send_work(const struct cgpu_info * const device, struct work *work
 	int work_size = opt_scrypt ? 156 : 52;
 	unsigned char cmd[work_size];
 
-	work->device_id = ++info->last_work_id;
-
 	if (opt_scrypt)
 	{
 		gc3355_scrypt_reset(device->device_fd);
@@ -258,7 +255,7 @@ bool gridseed_queue_append(struct thr_info * const thr, struct work *work)
 		return false;
 
 	// store work in queue
-	HASH_ADD(hh, master_thr->work_list, device_id, sizeof(work->device_id), work);
+	HASH_ADD(hh, master_thr->work_list, id, sizeof(work->id), work);
 
 	// prune queue
 	gridseed_prune_queue(device, work);
@@ -320,11 +317,13 @@ void gridseed_submit_nonce(struct thr_info * const master_thr, const unsigned ch
 	// find the queued work for this nonce, by workid
 	HASH_FIND(hh, master_thr->work_list, &workid, sizeof(workid), work);
 	if (work)
+	{
 		submit_nonce(thr, work, nonce);
-	else
-		inc_hw_errors2(thr, NULL, &nonce);
 
-	gridseed_set_queue_full(device, info->needwork + 2);
+		HASH_DEL(master_thr->work_list, work);
+
+		gridseed_set_queue_full(device, info->needwork + 2);
+	}
 }
 
 static
@@ -350,6 +349,8 @@ void gridseed_poll(struct thr_info * const master_thr)
 	int fd = device->device_fd;
 	unsigned char buf[GC3355_READ_SIZE];
 	int read = 0;
+	struct timeval tv_timeout;
+	timer_set_delay_from_now(&tv_timeout, 10000);
 
 	while (!master_thr->work_restart && (read = gc3355_read(device->device_fd, (char *)buf, GC3355_READ_SIZE)) > 0)
 	{
@@ -370,11 +371,19 @@ void gridseed_poll(struct thr_info * const master_thr)
 		} else
 		{
 			applog(LOG_ERR, "%"PRIpreprv": Unrecognized response", device->proc_repr);
-			return;
+			break;
+		}
+
+		if (timer_passed(&tv_timeout, NULL))
+		{
+			applog(LOG_DEBUG, "%s poll: timeout met", device->dev_repr);
+			break;
 		}
 	}
 
 	gridseed_estimate_hashes(device);
+
+	timer_set_delay_from_now(&master_thr->tv_poll, 10000);
 }
 
 /*

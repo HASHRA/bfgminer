@@ -61,7 +61,7 @@ int gc3355_read(int fd, char *buf, size_t size)
 		return -1;
 
 	if ((read > 0) && opt_dev_protocol)
-		gc3355_log_protocol(fd, buf, size, "RECV");
+		gc3355_log_protocol(fd, buf, read, "RECV");
 
 	return read;
 }
@@ -339,8 +339,8 @@ void gc3355_scrypt_prepare_work(unsigned char cmd[156], struct work *work)
 	cmd[151] = 0xff;
 
 	// taskid
-	int workid = work->device_id;
-	memcpy(cmd + 152, &(work->device_id), 4);
+	int workid = work->id;
+	memcpy(cmd + 152, &(workid), 4);
 }
 
 void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool simple)
@@ -357,8 +357,8 @@ void gc3355_sha2_prepare_work(unsigned char cmd[52], struct work *work, bool sim
 		memcpy(cmd + 36, work->data + 64, 12);
 
 		// taskid
-		int workid = work->device_id;
-		memcpy(cmd + 48, &(work->device_id), 4);
+		int workid = work->id;
+		memcpy(cmd + 48, &(workid), 4);
 	}
 	else
 	{

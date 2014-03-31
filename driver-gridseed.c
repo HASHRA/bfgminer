@@ -341,6 +341,9 @@ void gridseed_estimate_hashes(const struct cgpu_info * const device)
 	}
 }
 
+#define GRIDSEED_SHORT_WORK_DELAY_MS	20
+#define	GRIDSEED_LONG_WORK_DELAY_MS		30
+
 // read from device for nonce or command
 static
 void gridseed_poll(struct thr_info * const master_thr)
@@ -349,6 +352,9 @@ void gridseed_poll(struct thr_info * const master_thr)
 	int fd = device->device_fd;
 	unsigned char buf[GC3355_READ_SIZE];
 	int read = 0;
+	struct timeval tv_timeout;
+	timer_set_delay_from_now(&tv_timeout, GRIDSEED_LONG_WORK_DELAY_MS * 1000); // X MS
+	bool timeout = false;
 
 	while (!master_thr->work_restart && (read = gc3355_read(device->device_fd, (char *)buf, GC3355_READ_SIZE)) > 0)
 	{
@@ -371,11 +377,23 @@ void gridseed_poll(struct thr_info * const master_thr)
 			applog(LOG_ERR, "%"PRIpreprv": Unrecognized response", device->proc_repr);
 			break;
 		}
+
+		if (timer_passed(&tv_timeout, NULL))
+		{
+			// allow work to be sent to the device
+			applog(LOG_DEBUG, "%s poll: timeout met", device->dev_repr);
+			timeout = true;
+			break;
+		}
 	}
 
+	if (!timeout)
+	{
 	gridseed_estimate_hashes(device);
+	}
 
-	timer_set_delay_from_now(&master_thr->tv_poll, 10000);
+	// allow work to be sent to the device
+	timer_set_delay_from_now(&master_thr->tv_poll, GRIDSEED_SHORT_WORK_DELAY_MS * 1000); // X MS
 }
 
 /*

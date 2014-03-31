@@ -426,7 +426,7 @@ struct device_drv gridseed_drv =
 	// metadata
 	.dname = "gridseed",
 	.name = "GSD",
-	.supported_algos = POW_SCRYPT | POW_SHA256D,
+	.supported_algos = POW_SCRYPT,
 
 	// detect device
 	.lowl_probe = gridseed_lowl_probe,

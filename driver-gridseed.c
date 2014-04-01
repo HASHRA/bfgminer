@@ -343,7 +343,7 @@ void gridseed_estimate_hashes(const struct cgpu_info * const device)
 
 	while (true)
 	{
-		hashes_done2(proc->thr[0], info->freq * 0xb4, NULL);
+		hashes_done2(proc->thr[0], info->freq * 0xA4, NULL);
 		proc = proc->next_proc;
 		if (unlikely(!proc))
 			return;
@@ -396,10 +396,7 @@ void gridseed_poll(struct thr_info * const master_thr)
 		}
 	}
 
-	if (!timeout)
-	{
 	gridseed_estimate_hashes(device);
-	}
 
 	// allow work to be sent to the device
 	timer_set_delay_from_now(&master_thr->tv_poll, GRIDSEED_SHORT_WORK_DELAY_MS * 1000); // X MS

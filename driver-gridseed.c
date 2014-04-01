@@ -56,6 +56,13 @@ struct gc3355_orb_info *gridseed_alloc_info()
 	return info;
 }
 
+static
+void gridseed_empty_work(int fd)
+{
+	unsigned char buf[GC3355_READ_SIZE];
+	gc3355_read(fd, (char *)buf, GC3355_READ_SIZE);
+}
+
 /*
  * device detection
  */
@@ -66,6 +73,8 @@ bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct 
 	int fd = gc3355_open(path);
 	if(fd < 0)
 		return false;
+
+	gridseed_empty_work(fd);
 
 	uint32_t fw_version = gc3355_get_firmware_version(fd);
 

@@ -48,7 +48,13 @@ struct gc3355_info *gridseed_alloc_info()
 		quit(1, "Failed to malloc gc3355_info");
 
 	info->freq = GC3355_DEFAULT_FREQUENCY;
-	info->chips = GC3355_DEFAULT_CHIPS;
+  if (opt_gs_chips > 0) {
+      info->chips = opt_gs_chips;
+      applog(LOG_INFO, "------GS Setting %d chips ", opt_gs_chips);
+  }else{
+      info->chips = GC3355_DEFAULT_CHIPS;
+      applog(LOG_INFO, "------GS Setting chips setting not set, using %d", GC3355_DEFAULT_CHIPS);
+  }
 
 	return info;
 }
@@ -100,7 +106,7 @@ bool gridseed_detect_custom(const char *path, struct device_drv *driver, struct 
 
 	if (serial_claim_v(path, driver))
 		return false;
-	
+
 	if (!add_cgpu(device))
 		return false;
 

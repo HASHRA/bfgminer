@@ -402,7 +402,7 @@ enum {
 
 struct cgminer_stats {
 	struct timeval start_tv;
-	
+
 	uint32_t getwork_calls;
 	struct timeval getwork_wait;
 	struct timeval getwork_wait_max;
@@ -448,14 +448,14 @@ struct cgpu_info {
 	char *dev_repr;
 	char *dev_repr_ns;
 	const char *name;
-	
+
 	int procs;
 	int proc_id;
 	char proc_repr[9];
 	char proc_repr_ns[9];
 	struct cgpu_info *device;
 	struct cgpu_info *next_proc;
-	
+
 	const char *device_path;
 	void *device_data;
 	const char *dev_manufacturer;
@@ -552,7 +552,7 @@ struct cgpu_info {
 
 	bool disable_watchdog;
 	bool shutdown;
-	
+
 	// Lowest difficulty supported for finding nonces
 	float min_nonce_diff;
 };
@@ -937,6 +937,9 @@ extern char *opt_klondike_options;
 #ifdef USE_BITFORCE
 extern bool opt_bfl_noncerange;
 #endif
+#ifdef USE_GRIDSEED
+extern int opt_gs_chips;
+#endif
 extern int swork_id;
 
 extern pthread_rwlock_t netacc_lock;
@@ -1129,13 +1132,13 @@ enum pool_protocol {
 struct stratum_work {
 	char *job_id;
 	bool clean;
-	
+
 	bytes_t coinbase;
 	size_t nonce2_offset;
-	
+
 	int merkles;
 	bytes_t merkle_bin;
-	
+
 	uint8_t header1[36];
 	uint8_t diffbits[4];
 	uint32_t ntime;
@@ -1146,7 +1149,7 @@ struct stratum_work {
 	bool transparency_probed;
 	struct timeval tv_transparency;
 	bool opaque;
-	
+
 	cglock_t *data_lock_p;
 };
 
@@ -1306,19 +1309,19 @@ struct work {
 	int		id;
 	int		device_id;
 	UT_hash_handle hh;
-	
+
 	// Please don't use this if it's at all possible, I'd like to get rid of it eventually.
 	void *device_data;
 	void *(*device_data_dup_func)(struct work *);
 	void (*device_data_free_func)(struct work *);
-	
+
 	double		work_difficulty;
 	float		nonce_diff;
 
 	// Allow devices to identify work if multiple sub-devices
 	// DEPRECATED: New code should be using multiple processors instead
 	int		subid;
-	
+
 	// Allow devices to timestamp work for their own purposes
 	struct timeval	tv_stamp;
 
